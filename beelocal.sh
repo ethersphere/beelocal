@@ -156,8 +156,8 @@ start() {
 
 destroy() {
     echo "destroying k3d cluster..."
-    k3d cluster delete bee
-    docker rm -f k3d-registry.localhost
+    k3d cluster delete bee || true
+    docker rm -f k3d-registry.localhost || true
     echo "detroyed k3d cluster..."
 }
 
@@ -165,7 +165,7 @@ ALLOW_OPTS=(clef postage skip-local skip-peer)
 for OPT in $OPTS; do
     if [[ " ${ALLOW_OPTS[*]} " == *"$OPT"* ]]; then
         if [[ $OPT == "clef" ]]; then
-            CLEF="--set beeConfig.clef_signer_enable=true  --set clefSettings.enabled=true"
+            CLEF="--set beeConfig.clef_signer_enable=true --set clefSettings.enabled=true"
         fi
         if [[ $OPT == "postage" ]]; then
             POSTAGE="--set beeConfig.postage_stamp_address=0x538e6de1d876bbcd5667085257bc92f7c808a0f3 --set beeConfig.price_oracle_address=0xfc28330f1ece0ef2371b724e0d19c1ee60b728b2"
