@@ -108,7 +108,7 @@ install() {
     else
         BEES=$(seq 0 1 $LAST_BEE)
     fi
-    helm upgrade --install bee -f "${BEE_CONFIG}"/bee.yaml "${CHART}" -n local --set image.repository="${IMAGE}" --set image.tag="${IMAGE_TAG}" --set replicaCount="${REPLICA}" ${CLEF} ${POSTAGE}
+    helm upgrade --install bee -f "${BEE_CONFIG}"/bee.yaml "${CHART}" -n local --set image.repository="${IMAGE}" --set image.tag="${IMAGE_TAG}" --set replicaCount="${REPLICA}" ${CLEF} ${POSTAGE} ${HELM_OPTS}
     for i in ${BEES}; do
         echo "waiting for the bee-${i}..."
         until [[ "$(curl -s bee-"${i}"-debug.localhost/readiness | jq -r .status 2>/dev/null)" == "ok" ]]; do sleep 1; done
