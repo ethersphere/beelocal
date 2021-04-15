@@ -1,0 +1,25 @@
+apiVersion: k3d.io/v1alpha2
+kind: Simple
+name: bee
+kubeAPI:
+  host: "k3d-bee.localhost"
+ports:
+  - port: 80:80
+    nodeFilters:
+      - loadbalancer
+registries:
+  create: true
+  use:
+    - k3d-registry.localhost
+  config: |
+    mirrors:
+        docker.io:
+            endpoint:
+            - http://k3d-k3s-bee-registry:5000
+        k3d-registry.localhost:5000:
+            endpoint:
+            - http://k3d-registry.localhost:5000
+options:
+  k3d:
+    wait: true
+    timeout: "60s"
