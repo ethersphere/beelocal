@@ -161,51 +161,47 @@ destroy() {
     echo "detroyed k3d cluster..."
 }
 
-if [[ "${BASH_SOURCE[0]}" = "$0" ]]; then
-    ALLOW_OPTS=(clef postage skip-local skip-peer)
-    for OPT in $OPTS; do
-        if [[ " ${ALLOW_OPTS[*]} " == *"$OPT"* ]]; then
-            if [[ $OPT == "clef" ]]; then
-                CLEF="--set beeConfig.clef_signer_enable=true  --set clefSettings.enabled=true"
-            fi
-            if [[ $OPT == "postage" ]]; then
-                POSTAGE="--set beeConfig.postage_stamp_address=0x538e6de1d876bbcd5667085257bc92f7c808a0f3 --set beeConfig.price_oracle_address=0xfc28330f1ece0ef2371b724e0d19c1ee60b728b2"
-            fi
-            if [[ $OPT == "skip-local" ]]; then
-                IMAGE="ethersphere/bee"
-                SKIP_LOCAL="true"
-            fi
-            if [[ $OPT == "skip-peer" ]]; then
-                SKIP_PEER="true"
-            fi
-        else
-            echo "$OPT is unknown option..."
-            exit 1
+ALLOW_OPTS=(clef postage skip-local skip-peer)
+for OPT in $OPTS; do
+    if [[ " ${ALLOW_OPTS[*]} " == *"$OPT"* ]]; then
+        if [[ $OPT == "clef" ]]; then
+            CLEF="--set beeConfig.clef_signer_enable=true  --set clefSettings.enabled=true"
         fi
-    done
-
-    ACTIONS=(build check destroy geth install prepare uninstall start stop run)
-    if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
-
-        if [[ $ACTION == "run" ]]; then
-            check
-            if [[ $(k3d cluster list bee -o json 2>/dev/null| jq -r .[0].serversRunning) == "0" ]]; then
-                start
-            elif ! k3d cluster list bee --no-headers &> /dev/null; then
-                prepare
-            fi
-            if [[ -z $SKIP_LOCAL ]]; then
-                build
-            fi
-            install
-        else
-            $ACTION
+        if [[ $OPT == "postage" ]]; then
+            POSTAGE="--set beeConfig.postage_stamp_address=0x538e6de1d876bbcd5667085257bc92f7c808a0f3 --set beeConfig.price_oracle_address=0xfc28330f1ece0ef2371b724e0d19c1ee60b728b2"
         fi
-        exit 0
+        if [[ $OPT == "skip-local" ]]; then
+            IMAGE="ethersphere/bee"
+            SKIP_LOCAL="true"
+        fi
+        if [[ $OPT == "skip-peer" ]]; then
+            SKIP_PEER="true"
+        fi
     else
-        echo "$ACTION is unknown action..."
+        echo "$OPT is unknown option..."
         exit 1
     fi
+done
 
+ACTIONS=(build check destroy geth install prepare uninstall start stop run)
+if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
 
+    if [[ $ACTION == "run" ]]; then
+        check
+        if [[ $(k3d cluster list bee -o json 2>/dev/null| jq -r .[0].serversRunning) == "0" ]]; then
+            start
+        elif ! k3d cluster list bee --no-headers &> /dev/null; then
+            prepare
+        fi
+        if [[ -z $SKIP_LOCAL ]]; then
+            build
+        fi
+        install
+    else
+        $ACTION
+    fi
+    exit 0
+else
+    echo "$ACTION is unknown action..."
+    exit 1
 fi
