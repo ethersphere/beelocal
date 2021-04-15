@@ -157,7 +157,8 @@ start() {
 destroy() {
     echo "destroying k3d cluster..."
     k3d cluster delete bee || true
-    docker rm -f k3d-registry.localhost || true
+    k3d registry delete k3d-registry.localhost || true
+    k3d registry delete k3d-bee-registry || true
     echo "detroyed k3d cluster..."
 }
 
