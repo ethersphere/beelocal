@@ -46,7 +46,7 @@ beeConfig:
   payment_threshold: 10000000000000
   payment_tolerance: 1000000000000
   payment_early: 1000000000000
-  clef_signer_enable: false
+  clef_signer_enable: enable
   clef_signer_endpoint: http://localhost:8550
   swap_enable: true
   swap_endpoint: ws://geth-swap:8546
