@@ -177,7 +177,9 @@ destroy() {
     echo "destroying k3d cluster..."
     k3d cluster delete bee || true
     k3d registry delete k3d-registry.localhost || true
-    k3d registry delete k3d-bee-registry || true
+    if docker inspect k3d-bee-registry &> /dev/null; then
+        k3d registry delete k3d-bee-registry || true
+    fi
     echo "detroyed k3d cluster..."
 }
 
