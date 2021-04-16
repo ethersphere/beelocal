@@ -181,7 +181,7 @@ destroy() {
     echo "detroyed k3d cluster..."
 }
 
-ALLOW_OPTS=(clef postage skip-local skip-peer disable-swap)
+ALLOW_OPTS=(clef postage skip-local skip-peer skip-vet disable-swap)
 for OPT in $OPTS; do
     if [[ " ${ALLOW_OPTS[*]} " == *"$OPT"* ]]; then
         if [[ $OPT == "clef" ]]; then
