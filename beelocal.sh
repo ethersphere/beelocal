@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 set -eo pipefail
-# set -x
+set -x
 #/
 #/ Usage:
 #/ ./beelocal.sh
