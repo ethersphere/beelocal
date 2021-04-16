@@ -197,6 +197,9 @@ for OPT in $OPTS; do
         if [[ $OPT == "skip-peer" ]]; then
             SKIP_PEER="true"
         fi
+        if [[ $OPT == "skip-vet" ]]; then
+            SKIP_VET="true"
+        fi
         if [[ $OPT == "disable-swap" ]]; then
             SWAP="--set beeConfig.swap_enable=false"
         fi
