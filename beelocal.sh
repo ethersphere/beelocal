@@ -105,7 +105,9 @@ prepare() {
 
 build() {
     cd "${GOPATH}"/src/github.com/ethersphere/bee
-    make lint vet test-race
+    if [[ -z $SKIP_VET ]]; then
+        make lint vet test-race
+    fi
     docker build -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" . --cache-from=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" --build-arg BUILDKIT_INLINE_CACHE=1
     docker push k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}"
     cd -
