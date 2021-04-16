@@ -31,6 +31,13 @@ declare -x REPLICA=${REPLICA:-3}
 declare -x CHART=${CHART:-ethersphere/bee}
 declare -x IMAGE=${IMAGE:-k3d-registry.localhost:5000/ethersphere/bee}
 declare -x IMAGE_TAG=${IMAGE_TAG:-latest}
+declare -x NAMESPACE=${NAMESPACE:-local}
+declare -x PAYMENT_THRESHOLD=${PAYMENT_THRESHOLD}
+if [[ -n $PAYMENT_THRESHOLD ]]; then
+    PAYMENT="--set beeConfig.payment_threshold=${PAYMENT_THRESHOLD} --set beeConfig.payment_tolerance=$((PAYMENT_THRESHOLD/10)) --set beeConfig.payment_early=$((PAYMENT_THRESHOLD/10))"
+else
+    PAYMENT=
+fi
 
 check() {
     if ! grep -qE "docker|admin" <<< "$(id "$(whoami)")"; then
@@ -64,6 +71,9 @@ check() {
         echo "installing k3d..."
         curl -sSL https://raw.githubusercontent.com/rancher/k3d/main/install.sh | TAG=v4.4.1 bash
     fi
+}
+
+config() {
     if [[ -z $LOCAL_CONFIG ]]; then
         BEE_TEMP=$(mktemp -d -t bee-XXX)
         trap 'rm -rf ${BEE_TEMP}' EXIT
@@ -75,12 +85,13 @@ check() {
 }
 
 prepare() {
+    config
     echo "starting k3d cluster..."
     k3d registry create registry.localhost -p 5000 || true
     k3d cluster create --config "${BEE_CONFIG}"/k3d.yaml || true
     echo "waiting for the cluster..."
     until k3d kubeconfig get bee; do sleep 1; done
-    kubectl create ns local || true
+    kubectl create ns "${NAMESPACE}" || true
     if [[ $(helm repo list) != *ethersphere* ]]; then
         helm repo add ethersphere https://ethersphere.github.io/helm
     fi
@@ -101,14 +112,17 @@ build() {
 }
 
 install() {
+    if [[ -z $BEE_CONFIG ]]; then
+        config
+    fi
     geth
     LAST_BEE=$((REPLICA-1))
-    if helm get values bee -n local -o json &> /dev/null; then # if release exists do rolling upgrade
+    if helm get values bee -n "${NAMESPACE}" -o json &> /dev/null; then # if release exists do rolling upgrade
         BEES=$(seq $LAST_BEE -1 0)
     else
         BEES=$(seq 0 1 $LAST_BEE)
     fi
-    helm upgrade --install bee -f "${BEE_CONFIG}"/bee.yaml "${CHART}" -n local --set image.repository="${IMAGE}" --set image.tag="${IMAGE_TAG}" --set replicaCount="${REPLICA}" ${CLEF} ${POSTAGE} ${HELM_OPTS}
+    helm upgrade --install bee -f "${BEE_CONFIG}"/bee.yaml "${CHART}" -n "${NAMESPACE}" --set image.repository="${IMAGE}" --set image.tag="${IMAGE_TAG}" --set replicaCount="${REPLICA}" ${CLEF} ${POSTAGE} ${PAYMENT} ${SWAP} ${HELM_OPTS}
     for i in ${BEES}; do
         echo "waiting for the bee-${i}..."
         until [[ "$(curl -s bee-"${i}"-debug.localhost/readiness | jq -r .status 2>/dev/null)" == "ok" ]]; do sleep 1; done
@@ -123,19 +137,19 @@ install() {
 
 uninstall() {
     echo "uninstalling bee and geth releases..."
-    helm uninstall bee -n local
-    helm uninstall geth-swap -n local
+    helm uninstall bee -n "${NAMESPACE}"
+    helm uninstall geth-swap -n "${NAMESPACE}"
     echo "uninstalled bee and geth releases..."
 }
 
 geth() {
-    if helm get values geth-swap -n local -o json &> /dev/null; then # if release exists doesn't install geth
+    if helm get values geth-swap -n "${NAMESPACE}" -o json &> /dev/null; then # if release exists doesn't install geth
         echo "geth already installed..."
     else
         echo "installing geth..."
-        helm install geth-swap ethersphere/geth-swap -n local -f "${BEE_CONFIG}"/geth-swap.yaml
+        helm install geth-swap ethersphere/geth-swap -n "${NAMESPACE}" -f "${BEE_CONFIG}"/geth-swap.yaml ${GETH_HELM_OPTS}
         echo "waiting for the geth init..."
-        until [[ $(kubectl get pod -n local -l job-name=geth-swap-setupcontracts -o json | jq -r .items[0].status.containerStatuses[0].state.terminated.reason 2>/dev/null) == "Completed" ]]; do sleep 1; done
+        until [[ $(kubectl get pod -n "${NAMESPACE}" -l job-name=geth-swap-setupcontracts -o json | jq -r .items[0].status.containerStatuses[0].state.terminated.reason 2>/dev/null) == "Completed" ]]; do sleep 1; done
         echo "installed geth..."
     fi
 }
@@ -162,7 +176,7 @@ destroy() {
     echo "detroyed k3d cluster..."
 }
 
-ALLOW_OPTS=(clef postage skip-local skip-peer)
+ALLOW_OPTS=(clef postage skip-local skip-peer disable-swap)
 for OPT in $OPTS; do
     if [[ " ${ALLOW_OPTS[*]} " == *"$OPT"* ]]; then
         if [[ $OPT == "clef" ]]; then
@@ -178,6 +192,9 @@ for OPT in $OPTS; do
         if [[ $OPT == "skip-peer" ]]; then
             SKIP_PEER="true"
         fi
+        if [[ $OPT == "disable-swap" ]]; then
+            SWAP="--set beeConfig.swap_enable=false"
+        fi
     else
         echo "$OPT is unknown option..."
         exit 1
@@ -186,7 +203,6 @@ done
 
 ACTIONS=(build check destroy geth install prepare uninstall start stop run)
 if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
-
     if [[ $ACTION == "run" ]]; then
         check
         if [[ $(k3d cluster list bee -o json 2>/dev/null| jq -r .[0].serversRunning) == "0" ]]; then
