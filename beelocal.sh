@@ -116,6 +116,9 @@ install() {
         config
     fi
     geth
+    if [[ -z $SKIP_LOCAL ]]; then
+        build
+    fi
     LAST_BEE=$((REPLICA-1))
     if helm get values bee -n "${NAMESPACE}" -o json &> /dev/null; then # if release exists do rolling upgrade
         BEES=$(seq $LAST_BEE -1 0)
@@ -209,9 +212,6 @@ if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
             start
         elif ! k3d cluster list bee --no-headers &> /dev/null; then
             prepare
-        fi
-        if [[ -z $SKIP_LOCAL ]]; then
-            build
         fi
         install
     else
