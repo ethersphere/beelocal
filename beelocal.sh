@@ -23,7 +23,7 @@ usage() { grep '^#/' "$0" | cut -c4- ; exit 0 ; }
 expr "$*" : ".*-h" > /dev/null && usage
 expr "$*" : ".*--help" > /dev/null && usage
 
-declare -x BRANCH=${BRANCH:-main}
+declare -x BEELOCAL_BRANCH=${BEELOCAL_BRANCH:-main}
 
 declare -x DOCKER_BUILDKIT="1"
 declare -x ACTION=${ACTION:-run}
@@ -67,9 +67,9 @@ check() {
     if [[ -z $LOCAL_CONFIG ]]; then
         BEE_TEMP=$(mktemp -d -t bee-XXX)
         trap 'rm -rf ${BEE_TEMP}' EXIT
-        curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BRANCH}"/config/k3d.yaml -o "${BEE_TEMP}"/k3d.yaml
-        curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BRANCH}"/config/bee.yaml -o "${BEE_TEMP}"/bee.yaml
-        curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BRANCH}"/config/geth-swap.yaml -o "${BEE_TEMP}"/geth-swap.yaml
+        curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/k3d.yaml -o "${BEE_TEMP}"/k3d.yaml
+        curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/bee.yaml -o "${BEE_TEMP}"/bee.yaml
+        curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/geth-swap.yaml -o "${BEE_TEMP}"/geth-swap.yaml
         BEE_CONFIG="${BEE_TEMP}"
     fi
 }
