@@ -104,7 +104,11 @@ prepare() {
 }
 
 build() {
-    cd "${GOPATH}"/src/github.com/ethersphere/bee
+    if [[ -z $BEE_FOLDER ]]; then
+        cd "${GOPATH}"/src/github.com/ethersphere/bee
+    else
+        cd "${BEE_FOLDER}"
+    fi
     if [[ -z $SKIP_VET ]]; then
         make lint vet test-race
     fi
