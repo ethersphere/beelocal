@@ -104,17 +104,21 @@ prepare() {
 }
 
 build() {
-    if [[ -z $BEE_FOLDER ]]; then
-        cd "${GOPATH}"/src/github.com/ethersphere/bee
-    else
+    if [[ -n $BEE_FOLDER ]]; then
         cd "${BEE_FOLDER}"
+        BEE_CD=true
+    elif [[ ! -f Makefile ]]; then
+        cd "${GOPATH}"/src/github.com/ethersphere/bee
+        BEE_CD=true
     fi
     if [[ -z $SKIP_VET ]]; then
         make lint vet test-race
     fi
     docker build -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" . --cache-from=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" --build-arg BUILDKIT_INLINE_CACHE=1
     docker push k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}"
-    cd -
+    if [[ -n $BEE_CD ]]; then
+        cd -
+    fi
 }
 
 install() {
