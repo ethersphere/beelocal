@@ -81,10 +81,10 @@ check() {
             sudo mkdir -p /etc/rancher/k3s/
             sudo mkdir -p /var/lib/rancher/k3s/agent/images/
             sudo mkdir -p /var/lib/rancher/k3s/server/manifests/
-            cp "${K3S_FOLDER}"/k3s_install.sh .
+            # cp "${K3S_FOLDER}"/k3s_install.sh .
             sudo cp "${K3S_FOLDER}"/k3s /usr/local/bin/k3s
             sudo cp "${K3S_FOLDER}"/k3s-airgap-images-amd64.tar /var/lib/rancher/k3s/agent/images/
-            sudo chmod +x k3s_install.sh /usr/local/bin/k3s
+            sudo chmod +x "${K3S_FOLDER}"/k3s_install.sh /usr/local/bin/k3s
         fi
     else
         if ! command -v k3d &> /dev/null; then
@@ -119,7 +119,7 @@ prepare() {
     if [[ -n $CI ]]; then
         echo "starting k3s cluster..."
         docker container run -d --name k3d-registry.localhost -v registry:/var/lib/registry --restart always -p 5000:5000 registry:2 || true
-        INSTALL_K3S_SKIP_DOWNLOAD=true K3S_KUBECONFIG_MODE="644" INSTALL_K3S_EXEC="--disable=coredns" ./k3s_install.sh
+        INSTALL_K3S_SKIP_DOWNLOAD=true K3S_KUBECONFIG_MODE="644" INSTALL_K3S_EXEC="--disable=coredns" "${K3S_FOLDER}"/k3s_install.sh
         export KUBECONFIG=/etc/rancher/k3s/k3s.yaml  
         echo "waiting for the cluster..."  
     else
@@ -213,7 +213,7 @@ geth() {
 
 stop() {
     if [[ -n $CI ]]; then
-        echo "action not upported for CI"
+        echo "action not supported for CI"
         exit 1
     fi
     echo "stoping k3d cluster..."
@@ -224,7 +224,7 @@ stop() {
 
 start() {
     if [[ -n $CI ]]; then
-        echo "action not upported for CI"
+        echo "action not supported for CI"
         exit 1
     fi
     echo "starting k3d cluster..."
@@ -236,7 +236,7 @@ start() {
 destroy() {
     if [[ -n $CI ]]; then
         echo "destroying k3s cluster..."
-        docker rm -f registry.localhost || true
+        docker rm -f k3d-registry.localhost || true
         /usr/local/bin/k3s-uninstall.sh || true
         echo "detroyed k3s cluster..."
     else
