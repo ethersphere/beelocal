@@ -107,8 +107,8 @@ config() {
             curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/hack/registries.yaml -o "${BEE_TEMP}"/registries.yaml
             curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/hack/traefik.yaml -o "${BEE_TEMP}"/traefik.yaml
             sudo cp "${BEE_TEMP}"/registries.yaml /etc/rancher/k3s/registries.yaml
-            sudo cp "${BEE_TEMP}"/coredns.yaml /var/lib/rancher/k3s/server/manifests/coredns.yaml
-            sudo cp "${BEE_TEMP}"/traefik.yaml /var/lib/rancher/k3s/server/manifests/traefik.yaml
+            sudo cp "${BEE_TEMP}"/coredns.yaml /var/lib/rancher/k3s/server/manifests/coredns-custom.yaml
+            sudo cp "${BEE_TEMP}"/traefik.yaml /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
         fi
         BEE_CONFIG="${BEE_TEMP}"
     fi
@@ -238,7 +238,7 @@ destroy() {
         echo "destroying k3s cluster..."
         docker rm -f registry.localhost || true
         /usr/local/bin/k3s-uninstall.sh || true
-        echo "detroyed k3d cluster..."
+        echo "detroyed k3s cluster..."
     else
         echo "destroying k3d cluster..."
         k3d cluster delete bee || true
