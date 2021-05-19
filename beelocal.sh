@@ -70,7 +70,7 @@ check() {
     if [[ -n $CI ]]; then
         if ! command -v k3s &> /dev/null; then
             echo "k3s is missing..."
-            echo "installing k3s.."
+            echo "installing k3s..."
             K3S_FOLDER=/tmp/k3s-"${K3S_VERSION}"
             if [[ ! -d "${K3S_FOLDER}" ]]; then
                 mkdir -p "${K3S_FOLDER}"
@@ -206,7 +206,7 @@ geth() {
         echo "installing geth..."
         helm install geth-swap ethersphere/geth-swap -n "${NAMESPACE}" -f "${BEE_CONFIG}"/geth-swap.yaml ${GETH_HELM_OPTS}
         echo "waiting for the geth init..."
-        until [[ $(kubectl get pod -n "${NAMESPACE}" -l job-name=geth-swap-setupcontracts -o json | jq -r .items[0].status.containerStatuses[0].state.terminated.reason 2>/dev/null) == "Completed" ]]; do sleep 1; done
+        until [[ $(kubectl get pod -n "${NAMESPACE}" -l job-name=geth-swap-setupcontracts -o json | jq -r '.items|last|.status.containerStatuses[0].state.terminated.reason' 2>/dev/null) == "Completed" ]]; do sleep 1; done
         echo "installed geth..."
     fi
 }
