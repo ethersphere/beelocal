@@ -24,6 +24,7 @@ expr "$*" : ".*-h" > /dev/null && usage
 expr "$*" : ".*--help" > /dev/null && usage
 
 declare -x BEELOCAL_BRANCH=${BEELOCAL_BRANCH:-main}
+declare -x K3S_VERSION=${K3S_VERSION:-v1.19.7+k3s1}
 
 declare -x DOCKER_BUILDKIT="1"
 declare -x ACTION=${ACTION:-run}
@@ -66,10 +67,31 @@ check() {
         curl -sSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
     fi
 
-    if ! command -v k3d &> /dev/null; then
-        echo "k3d is missing..."
-        echo "installing k3d..."
-        curl -sSL https://raw.githubusercontent.com/rancher/k3d/main/install.sh | TAG=v4.4.1 bash
+    if [[ -n $CI ]]; then
+        if ! command -v k3s &> /dev/null; then
+            echo "k3s is missing..."
+            echo "installing k3s..."
+            K3S_FOLDER=/tmp/k3s-"${K3S_VERSION}"
+            if [[ ! -d "${K3S_FOLDER}" ]]; then
+                mkdir -p "${K3S_FOLDER}"
+                curl -sL https://get.k3s.io -o "${K3S_FOLDER}"/k3s_install.sh
+                curl -sL https://github.com/k3s-io/k3s/releases/download/"${K3S_VERSION/+/%2B}"/k3s -o "${K3S_FOLDER}"/k3s
+                curl -sL https://github.com/k3s-io/k3s/releases/download/"${K3S_VERSION/+/%2B}"/k3s-airgap-images-amd64.tar -o "${K3S_FOLDER}"/k3s-airgap-images-amd64.tar
+            fi
+            sudo mkdir -p /etc/rancher/k3s/
+            sudo mkdir -p /var/lib/rancher/k3s/agent/images/
+            sudo mkdir -p /var/lib/rancher/k3s/server/manifests/
+            # cp "${K3S_FOLDER}"/k3s_install.sh .
+            sudo cp "${K3S_FOLDER}"/k3s /usr/local/bin/k3s
+            sudo cp "${K3S_FOLDER}"/k3s-airgap-images-amd64.tar /var/lib/rancher/k3s/agent/images/
+            sudo chmod +x "${K3S_FOLDER}"/k3s_install.sh /usr/local/bin/k3s
+        fi
+    else
+        if ! command -v k3d &> /dev/null; then
+            echo "k3d is missing..."
+            echo "installing k3d..."
+            curl -sSL https://raw.githubusercontent.com/rancher/k3d/main/install.sh | TAG=v4.4.1 bash
+        fi
     fi
 }
 
@@ -80,17 +102,33 @@ config() {
         curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/k3d.yaml -o "${BEE_TEMP}"/k3d.yaml
         curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/bee.yaml -o "${BEE_TEMP}"/bee.yaml
         curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/geth-swap.yaml -o "${BEE_TEMP}"/geth-swap.yaml
+        if [[ -n $CI ]]; then
+            curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/hack/coredns.yaml -o "${BEE_TEMP}"/coredns.yaml
+            curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/hack/registries.yaml -o "${BEE_TEMP}"/registries.yaml
+            curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/hack/traefik.yaml -o "${BEE_TEMP}"/traefik.yaml
+            sudo cp "${BEE_TEMP}"/registries.yaml /etc/rancher/k3s/registries.yaml
+            sudo cp "${BEE_TEMP}"/coredns.yaml /var/lib/rancher/k3s/server/manifests/coredns-custom.yaml
+            sudo cp "${BEE_TEMP}"/traefik.yaml /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
+        fi
         BEE_CONFIG="${BEE_TEMP}"
     fi
 }
 
 prepare() {
     config
-    echo "starting k3d cluster..."
-    k3d registry create registry.localhost -p 5000 || true
-    k3d cluster create --config "${BEE_CONFIG}"/k3d.yaml || true
-    echo "waiting for the cluster..."
-    until k3d kubeconfig get bee; do sleep 1; done
+    if [[ -n $CI ]]; then
+        echo "starting k3s cluster..."
+        docker container run -d --name k3d-registry.localhost -v registry:/var/lib/registry --restart always -p 5000:5000 registry:2 || true
+        INSTALL_K3S_SKIP_DOWNLOAD=true K3S_KUBECONFIG_MODE="644" INSTALL_K3S_EXEC="--disable=coredns" "${K3S_FOLDER}"/k3s_install.sh
+        export KUBECONFIG=/etc/rancher/k3s/k3s.yaml  
+        echo "waiting for the cluster..."  
+    else
+        echo "starting k3d cluster..."
+        k3d registry create registry.localhost -p 5000 || true
+        k3d cluster create --config "${BEE_CONFIG}"/k3d.yaml || true
+        echo "waiting for the cluster..."
+        until k3d kubeconfig get bee; do sleep 1; done
+    fi
     kubectl create ns "${NAMESPACE}" || true
     if [[ $(helm repo list) != *ethersphere* ]]; then
         helm repo add ethersphere https://ethersphere.github.io/helm
@@ -114,7 +152,13 @@ build() {
     if [[ -z $SKIP_VET ]]; then
         make lint vet test-race
     fi
-    docker build -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" . --cache-from=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" --build-arg BUILDKIT_INLINE_CACHE=1
+    if [[ -n $CI ]]; then
+        make binary
+        mv dist/bee bee
+        docker build -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" -f Dockerfile.goreleaser . --cache-from=ghcr.io/ethersphere/bee --build-arg BUILDKIT_INLINE_CACHE=1
+    else
+        docker build -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" . --cache-from=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" --build-arg BUILDKIT_INLINE_CACHE=1
+    fi
     docker push k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}"
     if [[ -n $BEE_CD ]]; then
         cd -
@@ -162,12 +206,16 @@ geth() {
         echo "installing geth..."
         helm install geth-swap ethersphere/geth-swap -n "${NAMESPACE}" -f "${BEE_CONFIG}"/geth-swap.yaml ${GETH_HELM_OPTS}
         echo "waiting for the geth init..."
-        until [[ $(kubectl get pod -n "${NAMESPACE}" -l job-name=geth-swap-setupcontracts -o json | jq -r .items[0].status.containerStatuses[0].state.terminated.reason 2>/dev/null) == "Completed" ]]; do sleep 1; done
+        until [[ $(kubectl get pod -n "${NAMESPACE}" -l job-name=geth-swap-setupcontracts -o json | jq -r '.items|last|.status.containerStatuses[0].state.terminated.reason' 2>/dev/null) == "Completed" ]]; do sleep 1; done
         echo "installed geth..."
     fi
 }
 
 stop() {
+    if [[ -n $CI ]]; then
+        echo "action not supported for CI"
+        exit 1
+    fi
     echo "stoping k3d cluster..."
     k3d cluster stop bee 
     docker stop k3d-registry.localhost
@@ -175,6 +223,10 @@ stop() {
 }
 
 start() {
+    if [[ -n $CI ]]; then
+        echo "action not supported for CI"
+        exit 1
+    fi
     echo "starting k3d cluster..."
     docker start k3d-registry.localhost
     k3d cluster start bee
@@ -182,16 +234,23 @@ start() {
 }
 
 destroy() {
-    echo "destroying k3d cluster..."
-    k3d cluster delete bee || true
-    k3d registry delete k3d-registry.localhost || true
-    if docker inspect k3d-bee-registry &> /dev/null; then
-        k3d registry delete k3d-bee-registry || true
+    if [[ -n $CI ]]; then
+        echo "destroying k3s cluster..."
+        docker rm -f k3d-registry.localhost || true
+        /usr/local/bin/k3s-uninstall.sh || true
+        echo "detroyed k3s cluster..."
+    else
+        echo "destroying k3d cluster..."
+        k3d cluster delete bee || true
+        k3d registry delete k3d-registry.localhost || true
+        if docker inspect k3d-bee-registry &> /dev/null; then
+            k3d registry delete k3d-bee-registry || true
+        fi
+        echo "detroyed k3d cluster..."
     fi
-    echo "detroyed k3d cluster..."
 }
 
-ALLOW_OPTS=(clef postage skip-local skip-peer skip-vet disable-swap)
+ALLOW_OPTS=(clef postage skip-local skip-peer skip-vet disable-swap ci)
 for OPT in $OPTS; do
     if [[ " ${ALLOW_OPTS[*]} " == *"$OPT"* ]]; then
         if [[ $OPT == "clef" ]]; then
@@ -212,6 +271,9 @@ for OPT in $OPTS; do
         fi
         if [[ $OPT == "disable-swap" ]]; then
             SWAP="--set beeConfig.swap_enable=false"
+        fi
+        if [[ $OPT == "ci" ]]; then
+            CI="true"
         fi
     else
         echo "$OPT is unknown option..."
