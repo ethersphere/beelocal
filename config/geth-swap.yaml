@@ -96,3 +96,13 @@ resources:
   requests:
     cpu: 500m
     memory: 1024Mi
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  # ingressClassName: traefik
+  hosts:
+    - domain: localhost
+      paths:
+        - /
