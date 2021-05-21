@@ -130,6 +130,7 @@ prepare() {
         until k3d kubeconfig get bee; do sleep 1; done
     fi
     kubectl create ns "${NAMESPACE}" || true
+    kubectl label --overwrite node k3d-bee-server-0 node-group=local || true
     if [[ $(helm repo list) != *ethersphere* ]]; then
         helm repo add ethersphere https://ethersphere.github.io/helm
     fi
