@@ -14,7 +14,7 @@ set -eo pipefail
 #/
 #/ ACTION=install OPTS="clef skip-local" ./beelocal.sh
 #/
-#/ Actions: build check destroy geth install prepare uninstall start stop
+#/ Actions: build check destroy geth install k8s-local uninstall start stop
 #/
 #/ Options: clef postage skip-local skip-peer
 
@@ -27,7 +27,7 @@ declare -x BEELOCAL_BRANCH=${BEELOCAL_BRANCH:-main}
 declare -x K3S_VERSION=${K3S_VERSION:-v1.19.7+k3s1}
 
 declare -x DOCKER_BUILDKIT="1"
-declare -x ACTION=${ACTION:-ci}
+declare -x ACTION=${ACTION:-prepare}
 declare -x REPLICA=${REPLICA:-3}
 declare -x CHART=${CHART:-ethersphere/bee}
 declare -x IMAGE=${IMAGE:-k3d-registry.localhost:5000/ethersphere/bee}
@@ -113,7 +113,7 @@ config() {
     fi
 }
 
-prepare() {
+k8s-local() {
     config
     if [[ -n $CI ]]; then
         echo "starting k3s cluster..."
@@ -283,22 +283,22 @@ for OPT in $OPTS; do
     fi
 done
 
-ACTIONS=(build check destroy geth install prepare uninstall start stop run)
+ACTIONS=(build check destroy geth install k8s-local uninstall start stop run prepare)
 if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
     if [[ $ACTION == "run" ]]; then
         check
         if [[ $(k3d cluster list bee -o json 2>/dev/null| jq -r .[0].serversRunning) == "0" ]]; then
             start
         elif ! k3d cluster list bee --no-headers &> /dev/null; then
-            prepare
+            k8s-local
         fi
         install
-    elif [[ $ACTION == "ci" ]]; then
+    elif [[ $ACTION == "prepare" ]]; then
         check
         if [[ $(k3d cluster list bee -o json 2>/dev/null| jq -r .[0].serversRunning) == "0" ]]; then
             start
         elif ! k3d cluster list bee --no-headers &> /dev/null; then
-            prepare
+            k8s-local
         fi
         build
     else
