@@ -120,17 +120,19 @@ prepare() {
         echo "starting k3s cluster..."
         docker container run -d --name k3d-registry.localhost -v registry:/var/lib/registry --restart always -p 5000:5000 registry:2 || true
         INSTALL_K3S_SKIP_DOWNLOAD=true K3S_KUBECONFIG_MODE="644" INSTALL_K3S_EXEC="--disable=coredns" "${K3S_FOLDER}"/k3s_install.sh
-        export KUBECONFIG=/etc/rancher/k3s/k3s.yaml  
-        echo "waiting for the cluster..."  
+        export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+        echo "waiting for the cluster..."
+        until [[ $(kubectl get nodes --no-headers | cut -d' ' -f1) == "${HOSTNAME}" ]]; do sleep 1; done
+        kubectl label --overwrite node "${HOSTNAME}" node-group=local || true 
     else
         echo "starting k3d cluster..."
         k3d registry create registry.localhost -p 5000 || true
         k3d cluster create --config "${BEE_CONFIG}"/k3d.yaml || true
         echo "waiting for the cluster..."
         until k3d kubeconfig get bee; do sleep 1; done
+        kubectl label --overwrite node k3d-bee-server-0 node-group=local || true
     fi
     kubectl create ns "${NAMESPACE}" || true
-    kubectl label --overwrite node k3d-bee-server-0 node-group=local || true
     if [[ $(helm repo list) != *ethersphere* ]]; then
         helm repo add ethersphere https://ethersphere.github.io/helm
     fi
