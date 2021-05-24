@@ -27,7 +27,7 @@ declare -x BEELOCAL_BRANCH=${BEELOCAL_BRANCH:-main}
 declare -x K3S_VERSION=${K3S_VERSION:-v1.19.7+k3s1}
 
 declare -x DOCKER_BUILDKIT="1"
-declare -x ACTION=${ACTION:-run}
+declare -x ACTION=${ACTION:-ci}
 declare -x REPLICA=${REPLICA:-3}
 declare -x CHART=${CHART:-ethersphere/bee}
 declare -x IMAGE=${IMAGE:-k3d-registry.localhost:5000/ethersphere/bee}
@@ -81,7 +81,6 @@ check() {
             sudo mkdir -p /etc/rancher/k3s/
             sudo mkdir -p /var/lib/rancher/k3s/agent/images/
             sudo mkdir -p /var/lib/rancher/k3s/server/manifests/
-            # cp "${K3S_FOLDER}"/k3s_install.sh .
             sudo cp "${K3S_FOLDER}"/k3s /usr/local/bin/k3s
             sudo cp "${K3S_FOLDER}"/k3s-airgap-images-amd64.tar /var/lib/rancher/k3s/agent/images/
             sudo chmod +x "${K3S_FOLDER}"/k3s_install.sh /usr/local/bin/k3s
@@ -294,6 +293,14 @@ if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
             prepare
         fi
         install
+    elif [[ $ACTION == "ci" ]]; then
+        check
+        if [[ $(k3d cluster list bee -o json 2>/dev/null| jq -r .[0].serversRunning) == "0" ]]; then
+            start
+        elif ! k3d cluster list bee --no-headers &> /dev/null; then
+            prepare
+        fi
+        build
     else
         $ACTION
     fi
