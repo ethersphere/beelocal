@@ -26,6 +26,9 @@ expr "$*" : ".*--help" > /dev/null && usage
 declare -x BEELOCAL_BRANCH=${BEELOCAL_BRANCH:-main}
 declare -x K3S_VERSION=${K3S_VERSION:-v1.19.7+k3s1}
 
+declare -x BOOTNODE_REPLICA=${BOOTNODE_REPLICA:-2}
+declare -x BEE_REPLICA=${BEE_REPLICA:-5}
+
 declare -x DOCKER_BUILDKIT="1"
 declare -x ACTION=${ACTION:-prepare}
 declare -x REPLICA=${REPLICA:-3}
@@ -252,6 +255,17 @@ destroy() {
     fi
 }
 
+add-hosts() {
+    echo -e "127.0.0.10\tk3d-registry.localhost" | sudo tee -a /etc/hosts
+    echo -e "127.0.0.11\tgeth-swap.localhost" | sudo tee -a /etc/hosts
+    for ((i=0; i<BOOTNODE_REPLICA; i++)); do echo -e "127.0.1.$((i+1))\tbootnode-${i}.localhost bootnode-${i}-debug.localhost"; done | sudo tee -a /etc/hosts
+    for ((i=0; i<BEE_REPLICA; i++)); do echo -e "127.0.2.$((i+1))\tbee-${i}.localhost bee-${i}-debug.localhost"; done | sudo tee -a /etc/hosts
+}
+
+del-hosts() {
+    grep -vE 'bee|bootnode|geth-swap|k3d-registry.localhost' /etc/hosts | sudo tee /etc/hosts
+}
+
 ALLOW_OPTS=(clef postage skip-local skip-peer skip-vet disable-swap ci)
 for OPT in $OPTS; do
     if [[ " ${ALLOW_OPTS[*]} " == *"$OPT"* ]]; then
@@ -283,7 +297,7 @@ for OPT in $OPTS; do
     fi
 done
 
-ACTIONS=(build check destroy geth install k8s-local uninstall start stop run prepare)
+ACTIONS=(build check destroy geth install k8s-local uninstall start stop run prepare add-hosts del-hosts)
 if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
     if [[ $ACTION == "run" ]]; then
         check
