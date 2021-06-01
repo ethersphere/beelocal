@@ -199,8 +199,8 @@ install() {
 
 uninstall() {
     echo "uninstalling bee and geth releases..."
-    helm uninstall bee -n "${NAMESPACE}"
-    helm uninstall geth-swap -n "${NAMESPACE}"
+    helm uninstall bee -n "${NAMESPACE}" || true
+    helm uninstall geth-swap -n "${NAMESPACE}" || true
     echo "uninstalled bee and geth releases..."
 }
 
