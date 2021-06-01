@@ -29,6 +29,8 @@ declare -x K3S_VERSION=${K3S_VERSION:-v1.19.7+k3s1}
 declare -x BOOTNODE_REPLICA=${BOOTNODE_REPLICA:-2}
 declare -x BEE_REPLICA=${BEE_REPLICA:-5}
 
+declare -x K3S_FOLDER=${K3S_FOLDER:-"/tmp/k3s-${K3S_VERSION}"}
+
 declare -x DOCKER_BUILDKIT="1"
 declare -x ACTION=${ACTION:-prepare}
 declare -x REPLICA=${REPLICA:-3}
@@ -74,7 +76,6 @@ check() {
         if ! command -v k3s &> /dev/null; then
             echo "k3s is missing..."
             echo "installing k3s..."
-            K3S_FOLDER=/tmp/k3s-"${K3S_VERSION}"
             if [[ ! -d "${K3S_FOLDER}" ]]; then
                 mkdir -p "${K3S_FOLDER}"
                 curl -sL https://get.k3s.io -o "${K3S_FOLDER}"/k3s_install.sh
