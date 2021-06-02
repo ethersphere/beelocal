@@ -37,6 +37,7 @@ declare -x REPLICA=${REPLICA:-3}
 declare -x CHART=${CHART:-ethersphere/bee}
 declare -x IMAGE=${IMAGE:-k3d-registry.localhost:5000/ethersphere/bee}
 declare -x IMAGE_TAG=${IMAGE_TAG:-latest}
+declare -x SETUP_CONTRACT_IMAGE_TAG=${SETUP_CONTRACT_IMAGE_TAG:-latest}
 declare -x NAMESPACE=${NAMESPACE:-local}
 declare -x PAYMENT_THRESHOLD=${PAYMENT_THRESHOLD}
 if [[ -n $PAYMENT_THRESHOLD ]]; then
@@ -210,7 +211,7 @@ geth() {
         echo "geth already installed..."
     else
         echo "installing geth..."
-        helm install geth-swap ethersphere/geth-swap -n "${NAMESPACE}" -f "${BEE_CONFIG}"/geth-swap.yaml ${GETH_HELM_OPTS}
+        helm install geth-swap ethersphere/geth-swap -n "${NAMESPACE}" -f "${BEE_CONFIG}"/geth-swap.yaml --set imageSetupContract.tag="${SETUP_CONTRACT_IMAGE_TAG}" ${GETH_HELM_OPTS}
         echo "waiting for the geth init..."
         until [[ $(kubectl get pod -n "${NAMESPACE}" -l job-name=geth-swap-setupcontracts -o json | jq -r '.items|last|.status.containerStatuses[0].state.terminated.reason' 2>/dev/null) == "Completed" ]]; do sleep 1; done
         echo "installed geth..."
