@@ -8,6 +8,10 @@ ports:
   - port: 80:80
     nodeFilters:
       - loadbalancer
+labels:
+  - label: node-group=local
+    nodeFilters:
+      - server[0]
 registries:
   create: true
   use:

@@ -127,7 +127,8 @@ k8s-local() {
         export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
         echo "waiting for the cluster..."
         until [[ $(kubectl get nodes --no-headers | cut -d' ' -f1) == "${HOSTNAME}" ]]; do sleep 1; done
-        kubectl label --overwrite node "${HOSTNAME}" node-group=local || true 
+        kubectl label --overwrite node "${HOSTNAME}" node-group=local || true
+        echo "k3s cluster started..."
     else
         echo "starting k3d cluster..."
         k3d registry create registry.localhost -p 5000 || true
@@ -135,6 +136,7 @@ k8s-local() {
         echo "waiting for the cluster..."
         until k3d kubeconfig get bee; do sleep 1; done
         kubectl label --overwrite node k3d-bee-server-0 node-group=local || true
+        echo "k3d cluster started..."
     fi
     kubectl create ns "${NAMESPACE}" || true
     if [[ $(helm repo list) != *ethersphere* ]]; then
@@ -166,7 +168,9 @@ build() {
     else
         docker build -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" . --cache-from=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" --build-arg BUILDKIT_INLINE_CACHE=1
     fi
-    docker push k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}"
+    if [[ -z $SKIP_PUSH ]]; then
+        docker push k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}"
+    fi
     if [[ -n $BEE_CD ]]; then
         cd -
     fi
@@ -268,7 +272,7 @@ del-hosts() {
     grep -vE 'bee|bootnode|geth-swap|k3d-registry.localhost' /etc/hosts | sudo tee /etc/hosts
 }
 
-ALLOW_OPTS=(clef postage skip-local skip-peer skip-vet disable-swap ci)
+ALLOW_OPTS=(clef postage skip-local skip-peer skip-vet skip-push disable-swap ci)
 for OPT in $OPTS; do
     if [[ " ${ALLOW_OPTS[*]} " == *"$OPT"* ]]; then
         if [[ $OPT == "clef" ]]; then
@@ -286,6 +290,9 @@ for OPT in $OPTS; do
         fi
         if [[ $OPT == "skip-vet" ]]; then
             SKIP_VET="true"
+        fi
+        if [[ $OPT == "skip-push" ]]; then
+            SKIP_PUSH="true"
         fi
         if [[ $OPT == "disable-swap" ]]; then
             SWAP="--set beeConfig.swap_enable=false"
@@ -316,7 +323,9 @@ if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
         elif ! k3d cluster list bee --no-headers &> /dev/null; then
             k8s-local
         fi
-        build
+        if [[ -z $SKIP_LOCAL ]]; then
+            build
+        fi
     else
         $ACTION
     fi
