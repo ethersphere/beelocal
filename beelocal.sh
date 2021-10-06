@@ -262,14 +262,24 @@ destroy() {
 }
 
 add-hosts() {
-    echo -e "127.0.0.10\tk3d-registry.localhost" | sudo tee -a /etc/hosts
-    echo -e "127.0.0.11\tgeth-swap.localhost" | sudo tee -a /etc/hosts
-    for ((i=0; i<BOOTNODE_REPLICA; i++)); do echo -e "127.0.1.$((i+1))\tbootnode-${i}.localhost bootnode-${i}-debug.localhost"; done | sudo tee -a /etc/hosts
-    for ((i=0; i<BEE_REPLICA; i++)); do echo -e "127.0.2.$((i+1))\tbee-${i}.localhost bee-${i}-debug.localhost"; done | sudo tee -a /etc/hosts
+    if ! grep -q 'swarm bee' /etc/hosts; then
+        hosts_header="# This entries are to expose swarm bee services inside k3d cluster to the localhost\n"
+        hosts_entry="127.0.255.255\tk3d-registry.localhost geth-swap.localhost"
+        for ((i=0; i<BOOTNODE_REPLICA; i++)); do hosts_entry="${hosts_entry} bootnode-${i}.localhost bootnode-${i}-debug.localhost"; done
+        for ((i=0; i<BEE_REPLICA; i++)); do hosts_entry="${hosts_entry} bee-${i}.localhost bee-${i}-debug.localhost"; done
+        echo -e "${hosts_header}""${hosts_entry}" | sudo tee -a /etc/hosts
+        if [[ $(uname -s) == Darwin ]]; then
+            # On macOS we need to add alias so that other ip then 127.0.0.1 is accessible on the loopback interface
+            sudo ifconfig lo0 alias 127.0.255.255 up
+        fi
+    fi
 }
 
 del-hosts() {
-    grep -vE 'bee|bootnode|geth-swap|k3d-registry.localhost' /etc/hosts | sudo tee /etc/hosts
+    grep -vE 'swarm bee|k3d-registry.localhost' /etc/hosts | sudo tee /etc/hosts
+    if [[ $(uname -s) == Darwin ]]; then
+        sudo ifconfig lo0 -alias 127.0.255.255
+    fi
 }
 
 ALLOW_OPTS=(clef postage skip-local skip-peer skip-vet skip-push disable-swap ci)
