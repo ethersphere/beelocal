@@ -3,7 +3,7 @@ kind: Simple
 name: bee
 kubeAPI:
   host: "k3d-bee.localhost"
-image: rancher/k3s:v1.20.2+k3s1
+image: rancher/k3s:v1.20.2-k3s1
 ports:
   - port: 80:80
     nodeFilters:
