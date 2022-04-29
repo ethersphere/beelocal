@@ -44,7 +44,6 @@ beeConfig:
   cache_capacity: 2000
   cors_allowed_origins: '"*"'
   debug_api_enable: true
-  global_pinning_enable: true
   clef_signer_enable: false
   clef_signer_endpoint: http://localhost:8550
   mainnet: false
