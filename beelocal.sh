@@ -24,7 +24,7 @@ expr "$*" : ".*-h" > /dev/null && usage
 expr "$*" : ".*--help" > /dev/null && usage
 
 declare -x BEELOCAL_BRANCH=${BEELOCAL_BRANCH:-main}
-declare -x K3S_VERSION=${K3S_VERSION:-v1.19.7+k3s1}
+declare -x K3S_VERSION=${K3S_VERSION:-v1.20.15+k3s1}
 
 declare -x BOOTNODE_REPLICA=${BOOTNODE_REPLICA:-2}
 declare -x BEE_REPLICA=${BEE_REPLICA:-5}
