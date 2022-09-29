@@ -162,8 +162,10 @@ build() {
         make lint vet test-race
     fi
     if [[ -n $CI ]]; then
-        make binary
-        mv dist/bee bee
+        if [ ! -f bee ]; then
+            make binary
+            mv dist/bee bee
+        fi
         docker build -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" -f Dockerfile.goreleaser . --cache-from=ghcr.io/ethersphere/bee --build-arg BUILDKIT_INLINE_CACHE=1
     else
         docker build -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" . --cache-from=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" --build-arg BUILDKIT_INLINE_CACHE=1
