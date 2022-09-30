@@ -83,7 +83,7 @@ swap:
 
 geth:
   genesis:
-    gasLimit: "0x900000"
+    gasLimit: "0x1000000"
     clique:
       period: 1
 
