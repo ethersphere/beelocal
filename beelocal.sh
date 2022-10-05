@@ -123,12 +123,16 @@ k8s-local() {
     if [[ -n $CI ]]; then
         echo "starting k3s cluster..."
         docker container run -d --name k3d-registry.localhost -v registry:/var/lib/registry --restart always -p 5000:5000 registry:2 || true
+        # For CI run build in paralel
+        build &
         INSTALL_K3S_SKIP_DOWNLOAD=true K3S_KUBECONFIG_MODE="644" INSTALL_K3S_EXEC="--disable=coredns" "${K3S_FOLDER}"/k3s_install.sh
         export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
         echo "waiting for the cluster..."
         until [[ $(kubectl get nodes --no-headers | cut -d' ' -f1) == "${HOSTNAME}" ]]; do sleep 1; done
         kubectl label --overwrite node "${HOSTNAME}" node-group=local || true
         echo "k3s cluster started..."
+        # Wait for build
+        wait
     else
         echo "starting k3d cluster..."
         k3d registry create registry.localhost -p 5000 || true
@@ -335,7 +339,7 @@ if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
         elif ! k3d cluster list bee --no-headers &> /dev/null; then
             k8s-local
         fi
-        if [[ -z $SKIP_LOCAL ]]; then
+        if [[ -z $SKIP_LOCAL ]] && [[ -z $CI ]]; then
             build
         fi
     else
