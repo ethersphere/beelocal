@@ -122,7 +122,13 @@ k8s-local() {
     config
     if [[ -n $CI ]]; then
         echo "starting k3s cluster..."
+        if [[ -f  "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar ]]; then
+            docker load < "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar
+        fi
         docker container run -d --name k3d-registry.localhost -v registry:/var/lib/registry --restart always -p 5000:5000 registry:2 || true
+        if [[ ! -f  "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar ]]; then
+            docker save registry > "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar
+        fi
         # For CI run build in paralel
         build &
         INSTALL_K3S_SKIP_DOWNLOAD=true K3S_KUBECONFIG_MODE="644" INSTALL_K3S_EXEC="--disable=coredns" "${K3S_FOLDER}"/k3s_install.sh
