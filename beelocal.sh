@@ -123,10 +123,12 @@ k8s-local() {
     if [[ -n $CI ]]; then
         echo "starting k3s cluster..."
         if [[ -f  "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar ]]; then
+            echo "ENTERED LOAD IF"
             docker load < "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar
         fi
         docker container run -d --name k3d-registry.localhost -v registry:/var/lib/registry --restart always -p 5000:5000 registry:2 || true
         if [[ ! -f  "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar ]]; then
+            echo "ENTERED SAVE IF"
             docker save registry > "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar
         fi
         # For CI run build in paralel
