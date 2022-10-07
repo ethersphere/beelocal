@@ -84,10 +84,11 @@ check() {
                 curl -sL https://github.com/k3s-io/k3s/releases/download/"${K3S_VERSION/+/%2B}"/k3s-airgap-images-amd64.tar -o "${K3S_FOLDER}"/k3s-airgap-images-amd64.tar
             fi
             if [[ ! -d "${K3S_FOLDER}/k3s-images" ]]; then
+                mkdir -p "${K3S_FOLDER}/k3s-images"
                 curl -sL https://github.com/k3s-io/k3s/releases/download/"${K3S_VERSION/+/%2B}"/k3s-images.txt -o "${K3S_FOLDER}"/k3s-images/k3s-images.txt
-                while read -r image; do docker pull $image; done < "${K3S_FOLDER}"/k3s-images/k3s-images.txt
-                while read -r image; do docker tag $image k3d-registry.localhost:5000/${image##*\/}; done < "${K3S_FOLDER}"/k3s-images/k3s-images.txt
-                while read -r image; do docker save k3d-registry.localhost:5000/${image##*\/} > "${K3S_FOLDER}"/k3s-images/k3s-airgap-${image##*\/}-amd64.tar; done < "${K3S_FOLDER}"/k3s-images/k3s-images.txt
+                while read -r image; do docker pull "${image}"; done < "${K3S_FOLDER}"/k3s-images/k3s-images.txt
+                while read -r image; do docker tag "${image}" k3d-registry.localhost:5000/"${image##*\/}"; done < "${K3S_FOLDER}"/k3s-images/k3s-images.txt
+                while read -r image; do docker save k3d-registry.localhost:5000/"${image##*\/}" > "${K3S_FOLDER}"/k3s-images/k3s-airgap-"${image##*\/}"-amd64.tar; done < "${K3S_FOLDER}"/k3s-images/k3s-images.txt
             fi
             sudo mkdir -p /etc/rancher/k3s/
             sudo mkdir -p /var/lib/rancher/k3s/agent/images/
@@ -136,8 +137,8 @@ k8s-local() {
             docker save registry > "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar
         fi
         if [[ -d "${K3S_FOLDER}/k3s-images" ]]; then
-            while read -r image; do docker load < "${K3S_FOLDER}"/k3s-images/k3s-airgap-${image##*\/}-amd64.tar; done < "${K3S_FOLDER}"/k3s-images/k3s-images.txt
-            while read -r image; do docker push k3d-registry.localhost:5000/${image##*\/}; done < "${K3S_FOLDER}"/k3s-images/k3s-images.txt
+            while read -r image; do docker load < "${K3S_FOLDER}"/k3s-images/k3s-airgap-"${image##*\/}"-amd64.tar; done < "${K3S_FOLDER}"/k3s-images/k3s-images.txt
+            while read -r image; do docker push k3d-registry.localhost:5000/"${image##*\/}"; done < "${K3S_FOLDER}"/k3s-images/k3s-images.txt
         fi
         # For CI run build in paralel
         build &
