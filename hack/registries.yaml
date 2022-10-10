@@ -7,5 +7,6 @@ mirrors:
     - http://k3d-registry.localhost:5000
     rewrite:
       "^rancher/(.*)": "rancher/$1"
+      "^ethereum/(.*)": "ethereum/$1"
 configs: {}
 auths: {}

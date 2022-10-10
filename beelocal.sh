@@ -140,6 +140,15 @@ k8s-local() {
             while read -r image; do docker load < "${K3S_FOLDER}"/k3s-images/k3s-airgap-"${image##*\/}"-amd64.tar; done < "${K3S_FOLDER}"/k3s-images/k3s-images.txt
             while read -r image; do docker push k3d-registry.localhost:5000/rancher/"${image##*\/}"; done < "${K3S_FOLDER}"/k3s-images/k3s-images.txt
         fi
+        GETH_VERSION=$(grep "tag: v" "${BEE_CONFIG}"/geth-swap.yaml | cut -d' ' -f4)
+        if [[ ! -f "${K3S_FOLDER}"/k3s-airgap-client-go:"${GETH_VERSION}"-amd64.tar ]]; then
+            rm "${K3S_FOLDER}"/k3s-airgap-client-go:*-amd64.tar || true
+            docker pull ethereum/client-go:"${GETH_VERSION}"
+            docker tag ethereum/client-go:"${GETH_VERSION}" k3d-registry.localhost:5000/ethereum/client-go:"${GETH_VERSION}"
+            docker save k3d-registry.localhost:5000/ethereum/client-go:"${GETH_VERSION}" > "${K3S_FOLDER}"/k3s-airgap-client-go:"${GETH_VERSION}"-amd64.tar
+        else
+            docker load < "${K3S_FOLDER}"/k3s-airgap-client-go:"${GETH_VERSION}"-amd64.tar
+        fi
         # For CI run build in paralel
         build &
         INSTALL_K3S_SKIP_DOWNLOAD=true K3S_KUBECONFIG_MODE="644" INSTALL_K3S_EXEC="--disable=coredns" "${K3S_FOLDER}"/k3s_install.sh
