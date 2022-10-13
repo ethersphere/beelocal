@@ -108,9 +108,9 @@ config() {
         curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/geth-swap.yaml -o "${BEE_TEMP}"/geth-swap.yaml
         if [[ -n $CI ]]; then
             curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/hack/registries.yaml -o "${BEE_TEMP}"/registries.yaml
-            curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/hack/traefik.yaml -o "${BEE_TEMP}"/traefik.yaml
+            # curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/hack/traefik.yaml -o "${BEE_TEMP}"/traefik.yaml
             sudo cp "${BEE_TEMP}"/registries.yaml /etc/rancher/k3s/registries.yaml
-            sudo cp "${BEE_TEMP}"/traefik.yaml /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
+            # sudo cp "${BEE_TEMP}"/traefik.yaml /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
         fi
         BEE_CONFIG="${BEE_TEMP}"
     fi
