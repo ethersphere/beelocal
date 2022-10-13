@@ -104,9 +104,9 @@ resources:
 
 ingress:
   enabled: true
-  annotations:
-    kubernetes.io/ingress.class: traefik
-  # ingressClassName: traefik
+  # annotations:
+  #   kubernetes.io/ingress.class: traefik
+  ingressClassName: traefik
   hosts:
     - domain: localhost
       paths:
