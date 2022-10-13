@@ -5,4 +5,9 @@ metadata:
   namespace: kube-system
 spec:
   valuesContent: |-
-      externalTrafficPolicy: Local
+    externalTrafficPolicy: Local
+    globalArguments:
+    - "--serversTransport.insecureSkipVerify=true"
+    logs:
+      access:
+        enabled: true
