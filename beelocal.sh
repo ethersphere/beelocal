@@ -29,7 +29,7 @@ declare -x K3S_VERSION=${K3S_VERSION:-v1.20.15+k3s1}
 declare -x BOOTNODE_REPLICA=${BOOTNODE_REPLICA:-2}
 declare -x BEE_REPLICA=${BEE_REPLICA:-5}
 
-declare -x K3S_FOLDER=${K3S_FOLDER:-"/tmp/k3s-${K3S_VERSION}-v2"}
+declare -x K3S_FOLDER=${K3S_FOLDER:-"/tmp/k3s-${K3S_VERSION}-v3"}
 
 declare -x DOCKER_BUILDKIT="1"
 declare -x ACTION=${ACTION:-prepare}
