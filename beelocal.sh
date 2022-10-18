@@ -129,17 +129,22 @@ k8s-local() {
     config
     if [[ -n $CI ]]; then
         echo "starting k3s cluster..."
-        if [[ -f  "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar ]]; then
+        if [[ -f  "${K3S_FOLDER}"/k3s-airgap-registry-container-amd64.tar ]]; then
+            docker import "${K3S_FOLDER}"/k3s-airgap-registry-container-amd64.tar registry:2
+        elif [[ -f  "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar ]]; then
             docker load < "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar
         fi
-        docker container run -d --name k3d-registry.localhost -v registry:/var/lib/registry --restart always -p 5000:5000 registry:2 || true
+        docker container run -d --name k3d-registry.localhost --restart always -p 5000:5000 registry:2 || true
         if [[ ! -f  "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar ]]; then
             docker save registry > "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar
         fi
-        if [[ -d "${K3S_FOLDER}/k3s-images" ]]; then
+        if [[ ! -f  "${K3S_FOLDER}"/k3s-airgap-registry-container-amd64.tar ]] && [[ -d "${K3S_FOLDER}/k3s-images" ]]; then
             while read -r image; do docker load < "${K3S_FOLDER}"/k3s-images/k3s-airgap-"${image##*\/}"-amd64.tar; done < "${K3S_FOLDER}"/k3s-images/k3s-images.txt
             while read -r image; do docker push k3d-registry.localhost:5000/rancher/"${image##*\/}"; done < "${K3S_FOLDER}"/k3s-images/k3s-images.txt
         fi
+        if [[ ! -f  "${K3S_FOLDER}"/k3s-airgap-registry-container-amd64.tar ]]; then
+            docker export k3d-registry.localhost > "${K3S_FOLDER}"/k3s-airgap-registry-container-amd64.tar
+        fi        
         GETH_VERSION=$(grep "tag: v" "${BEE_CONFIG}"/geth-swap.yaml | cut -d' ' -f4)
         if [[ ! -f "${K3S_FOLDER}"/k3s-airgap-client-go:"${GETH_VERSION}"-amd64.tar ]]; then
             rm "${K3S_FOLDER}"/k3s-airgap-client-go:*-amd64.tar || true
