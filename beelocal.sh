@@ -130,7 +130,7 @@ k8s-local() {
     if [[ -n $CI ]]; then
         echo "starting k3s cluster..."
         if [[ -f  "${K3S_FOLDER}"/k3s-airgap-registry-container-amd64.tar ]]; then
-            docker import "${K3S_FOLDER}"/k3s-airgap-registry-container-amd64.tar registry:2
+            docker import --change 'ENTRYPOINT ["/entrypoint.sh"]' --change 'CMD ["/etc/docker/registry/config.yml"]' "${K3S_FOLDER}"/k3s-airgap-registry-container-amd64.tar registry:2
         elif [[ -f  "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar ]]; then
             docker load < "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar
         fi
