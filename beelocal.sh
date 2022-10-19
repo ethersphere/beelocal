@@ -178,10 +178,11 @@ k8s-local() {
         helm repo add ethersphere https://ethersphere.github.io/helm
     fi
     helm repo update
-
+    # Install geth while waiting for traefik
+    geth &
     echo "waiting for the kube-system..."
     until kubectl get svc traefik -n kube-system &> /dev/null; do sleep 1; done
-    geth
+    wait
     echo "cluster running..."
 }
 
