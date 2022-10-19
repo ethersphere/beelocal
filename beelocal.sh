@@ -204,16 +204,23 @@ build() {
             make binary
             mv dist/bee bee
         fi
-        docker buildx build --push -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" -f Dockerfile.goreleaser  \
-            --cache-to type=gha,ref=k3d-registry.localhost:5000/ethersphere/bee,compression=estargz \
-            --cache-from type=gha,ref=k3d-registry.localhost:5000/ethersphere/bee .
+        if [[ -z $SKIP_PUSH ]]; then
+            docker buildx build -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" -f Dockerfile.goreleaser  \
+                --cache-from type=gha,ref=k3d-registry.localhost:5000/ethersphere/bee .
+        else
+            docker buildx build --push -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" -f Dockerfile.goreleaser  \
+                --cache-to type=gha,ref=k3d-registry.localhost:5000/ethersphere/bee,compression=estargz \
+                --cache-from type=gha,ref=k3d-registry.localhost:5000/ethersphere/bee .
+        fi
     else
-        docker buildx build --push -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" \
-            --cache-to type=registry,ref=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}",compression=estargz \
-            --cache-from type=registry,ref=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" .
-    fi
-    if [[ -z $SKIP_PUSH ]]; then
-        docker push k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}"
+        if [[ -z $SKIP_PUSH ]]; then
+            docker buildx build -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" \
+                --cache-from type=registry,ref=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" .
+        else
+            docker buildx build --push -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" \
+                --cache-to type=registry,ref=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}",compression=estargz \
+                --cache-from type=registry,ref=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" .
+        fi
     fi
     if [[ -n $BEE_CD ]]; then
         cd -
