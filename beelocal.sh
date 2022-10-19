@@ -153,6 +153,7 @@ k8s-local() {
             docker save k3d-registry.localhost:5000/ethereum/client-go:"${GETH_VERSION}" > "${K3S_FOLDER}"/k3s-airgap-client-go:"${GETH_VERSION}"-amd64.tar
         else
             docker load < "${K3S_FOLDER}"/k3s-airgap-client-go:"${GETH_VERSION}"-amd64.tar
+            docker push k3d-registry.localhost:5000/ethereum/client-go:"${GETH_VERSION}"
         fi
         # For CI run build in paralel
         build &
@@ -182,6 +183,7 @@ k8s-local() {
     geth &
     echo "waiting for the kube-system..."
     until kubectl get svc traefik -n kube-system &> /dev/null; do sleep 1; done
+    # Wait for geth
     wait
     echo "cluster running..."
 }
@@ -202,9 +204,13 @@ build() {
             make binary
             mv dist/bee bee
         fi
-        docker build -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" -f Dockerfile.goreleaser . --cache-from=ghcr.io/ethersphere/bee --build-arg BUILDKIT_INLINE_CACHE=1
+        docker buildx build --push -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" -f Dockerfile.goreleaser  \
+            --cache-to type=gha,ref=k3d-registry.localhost:5000/ethersphere/bee,compression=estargz \
+            --cache-from type=gha,ref=k3d-registry.localhost:5000/ethersphere/bee .
     else
-        docker build -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" . --cache-from=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" --build-arg BUILDKIT_INLINE_CACHE=1
+        docker buildx build --push -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" \
+            --cache-to type=registry,ref=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}",compression=estargz \
+            --cache-from type=registry,ref=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" .
     fi
     if [[ -z $SKIP_PUSH ]]; then
         docker push k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}"
