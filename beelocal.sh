@@ -205,8 +205,8 @@ build() {
             mv dist/bee bee
         fi
         if [[ -z $SKIP_PUSH ]]; then
-            docker buildx build --progress=plain --push -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" -f Dockerfile.goreleaser  \
-                --cache-to type=gha,ref=k3d-registry.localhost:5000/ethersphere/bee,compression=estargz \
+            docker buildx build --push -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" -f Dockerfile.goreleaser  \
+                --cache-to type=gha,mode=max,ref=k3d-registry.localhost:5000/ethersphere/bee,compression=estargz \
                 --cache-from type=gha,ref=k3d-registry.localhost:5000/ethersphere/bee .
         else
             docker buildx build -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" -f Dockerfile.goreleaser  \
@@ -215,7 +215,7 @@ build() {
     else
         if [[ -z $SKIP_PUSH ]]; then
             docker buildx build --push -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" \
-                --cache-to type=registry,ref=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}",compression=estargz \
+                --cache-to type=registry,mode=max,ref=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}",compression=estargz \
                 --cache-from type=registry,ref=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" .
         else
             docker buildx build -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" \
