@@ -144,7 +144,7 @@ k8s-local() {
         fi
         if [[ ! -f  "${K3S_FOLDER}"/k3s-airgap-registry-container-amd64.tar ]]; then
             docker export k3d-registry.localhost > "${K3S_FOLDER}"/k3s-airgap-registry-container-amd64.tar
-        fi        
+        fi
         GETH_VERSION=$(grep "tag: v" "${BEE_CONFIG}"/geth-swap.yaml | cut -d' ' -f4)
         if [[ ! -f "${K3S_FOLDER}"/k3s-airgap-client-go:"${GETH_VERSION}"-amd64.tar ]]; then
             rm "${K3S_FOLDER}"/k3s-airgap-client-go:*-amd64.tar || true
