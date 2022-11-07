@@ -155,7 +155,7 @@ k8s-local() {
         fi
         # For CI run build in paralel
         build &
-        INSTALL_K3S_SKIP_DOWNLOAD=true K3S_KUBECONFIG_MODE="644" INSTALL_K3S_EXEC="--disable=coredns" "${K3S_FOLDER}"/k3s_install.sh
+        INSTALL_K3S_SKIP_DOWNLOAD=true K3S_KUBECONFIG_MODE="644" "${K3S_FOLDER}"/k3s_install.sh
         export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
         echo "waiting for the cluster..."
         until [[ $(kubectl get nodes --no-headers | cut -d' ' -f1) == "${HOSTNAME}" ]]; do sleep 1; done
