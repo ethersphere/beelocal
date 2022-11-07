@@ -6,9 +6,3 @@ metadata:
 spec:
   valuesContent: |-
     externalTrafficPolicy: Local
-    globalArguments:
-    - "--serversTransport.insecureSkipVerify=true"
-    logs:
-      level: DEBUG
-      access:
-        enabled: true
