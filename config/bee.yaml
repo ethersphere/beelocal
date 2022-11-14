@@ -57,7 +57,7 @@ beeConfig:
   swap-endpoint: ws://geth-swap:8546
   swap-factory_address: 0x09ad42a7d020244920309ffa14ea376dd2d3b7d5
   swap-legacy_factory_addresses: 0x657241f4494a2f15ba75346e691d753a978c72df
-  swap-initial_deposit: 500000000000000000
+  swap-initial_deposit: 0
   verbosity: 5
 
 libp2pSettings:
