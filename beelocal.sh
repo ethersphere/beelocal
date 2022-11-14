@@ -213,13 +213,7 @@ build() {
                 --cache-from type=gha,ref=k3d-registry.localhost:5000/ethersphere/bee .
         fi
     else
-        if [[ -z $SKIP_PUSH ]]; then
-            docker buildx build --push -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" \
-                --cache-to type=registry,mode=max,ref=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}",compression=estargz \
-                --cache-from type=registry,ref=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" .
-        else
-            docker buildx build -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" \
-                --cache-from type=registry,ref=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" .
+        docker buildx build -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" .
         fi
     fi
     if [[ -z $SKIP_PUSH ]]; then
