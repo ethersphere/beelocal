@@ -102,7 +102,7 @@ check() {
         if ! command -v k3d &> /dev/null; then
             echo "k3d is missing..."
             echo "installing k3d..."
-            curl -sSL https://raw.githubusercontent.com/rancher/k3d/main/install.sh | TAG=v5.0.1 bash
+            curl -sSL https://raw.githubusercontent.com/rancher/k3d/main/install.sh | TAG=v5.4.6 bash
         fi
     fi
 }
