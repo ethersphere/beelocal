@@ -44,8 +44,8 @@ beeConfig:
   cache-capacity: 2000
   cors-allowed-origins: '"*"'
   debug-api-enable: true
-  clef-signer_enable: false
-  clef-signer_endpoint: http://localhost:8550
+  clef-signer-enable: false
+  clef-signer-endpoint: http://localhost:8550
   mainnet: false
   network-id: 12345
   payment-threshold: 10000000000000
@@ -55,9 +55,9 @@ beeConfig:
   price-oracle-address: 0xfc28330f1ece0ef2371b724e0d19c1ee60b728b2
   swap-enable: true
   swap-endpoint: ws://geth-swap:8546
-  swap-factory_address: 0x09ad42a7d020244920309ffa14ea376dd2d3b7d5
-  swap-legacy_factory_addresses: 0x657241f4494a2f15ba75346e691d753a978c72df
-  swap-initial_deposit: 500000000000000000
+  swap-factory-address: 0x09ad42a7d020244920309ffa14ea376dd2d3b7d5
+  swap-legacy-factory-addresses: 0x657241f4494a2f15ba75346e691d753a978c72df
+  swap-initial-deposit: 500000000000000000
   verbosity: 5
 
 libp2pSettings:
