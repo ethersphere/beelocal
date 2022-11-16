@@ -102,7 +102,7 @@ check() {
         if ! command -v k3d &> /dev/null; then
             echo "k3d is missing..."
             echo "installing k3d..."
-            curl -sSL https://raw.githubusercontent.com/rancher/k3d/main/install.sh | TAG=v4.4.1 bash
+            curl -sSL https://raw.githubusercontent.com/rancher/k3d/main/install.sh | TAG=v5.0.1 bash
         fi
     fi
 }
@@ -172,7 +172,6 @@ k8s-local() {
         k3d cluster create --config "${BEE_CONFIG}"/k3d.yaml || true
         echo "waiting for the cluster..."
         until k3d kubeconfig get bee; do sleep 1; done
-        kubectl label --overwrite node k3d-bee-server-0 node-group=local || true
         echo "k3d cluster started..."
     fi
     kubectl create ns "${NAMESPACE}" || true
@@ -232,12 +231,12 @@ install() {
     if [[ -z $SKIP_LOCAL ]]; then
         build
     fi
-    make deploylocal BEEKEEPER_CLUSTER="${BEEKEEPER_CLUSTER}"
+    beekeeper create bee-cluster --cluster-name "${BEEKEEPER_CLUSTER}"
 }
 
 uninstall() {
     echo "uninstalling bee and geth releases..."
-    # helm uninstall bee -n "${NAMESPACE}" || true
+    beekeeper delete bee-cluster --cluster-name "${BEEKEEPER_CLUSTER}" || true
     helm uninstall geth-swap -n "${NAMESPACE}" || true
     echo "uninstalled bee and geth releases..."
 }
