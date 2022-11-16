@@ -39,12 +39,7 @@ declare -x IMAGE=${IMAGE:-k3d-registry.localhost:5000/ethersphere/bee}
 declare -x IMAGE_TAG=${IMAGE_TAG:-latest}
 declare -x SETUP_CONTRACT_IMAGE_TAG=${SETUP_CONTRACT_IMAGE_TAG:-latest}
 declare -x NAMESPACE=${NAMESPACE:-local}
-declare -x PAYMENT_THRESHOLD=${PAYMENT_THRESHOLD}
-if [[ -n $PAYMENT_THRESHOLD ]]; then
-    PAYMENT="--set beeConfig.payment_threshold=${PAYMENT_THRESHOLD} --set beeConfig.payment_tolerance=$((PAYMENT_THRESHOLD/10)) --set beeConfig.payment_early=$((PAYMENT_THRESHOLD/10))"
-else
-    PAYMENT=
-fi
+declare -x BEEKEEPER_CLUSTER=${BEEKEEPER_CLUSTER:-local}
 
 check() {
     if ! grep -qE "docker|admin" <<< "$(id "$(whoami)")"; then
@@ -71,6 +66,12 @@ check() {
         echo "helm is missing..."
         echo "installing helm..."
         curl -sSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+    fi
+
+    if ! command -v beekeeper &> /dev/null; then
+        echo "helm is missing..."
+        echo "installing helm..."
+        make beekeeper BEEKEEPER_INSTALL_DIR="$(go env GOPATH)/bin"
     fi
 
     if [[ -n $CI ]]; then
@@ -101,7 +102,7 @@ check() {
         if ! command -v k3d &> /dev/null; then
             echo "k3d is missing..."
             echo "installing k3d..."
-            curl -sSL https://raw.githubusercontent.com/rancher/k3d/main/install.sh | TAG=v4.4.1 bash
+            curl -sSL https://raw.githubusercontent.com/rancher/k3d/main/install.sh | TAG=v5.4.6 bash
         fi
     fi
 }
@@ -155,24 +156,33 @@ k8s-local() {
             docker load < "${K3S_FOLDER}"/k3s-airgap-client-go:"${GETH_VERSION}"-amd64.tar
             docker push k3d-registry.localhost:5000/ethereum/client-go:"${GETH_VERSION}"
         fi
-        # For CI run build in paralel
-        build &
+        if [[ -z $SKIP_LOCAL ]]; then
+            build &
+        fi
         INSTALL_K3S_SKIP_DOWNLOAD=true K3S_KUBECONFIG_MODE="644" INSTALL_K3S_EXEC="--disable=coredns" "${K3S_FOLDER}"/k3s_install.sh
         export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
         echo "waiting for the cluster..."
         until [[ $(kubectl get nodes --no-headers | cut -d' ' -f1) == "${HOSTNAME}" ]]; do sleep 1; done
         kubectl label --overwrite node "${HOSTNAME}" node-group=local || true
         echo "k3s cluster started..."
-        # Wait for build
-        wait
+        if [[ -z $SKIP_LOCAL ]]; then
+            # Wait for build
+            wait
+        fi
     else
         echo "starting k3d cluster..."
         k3d registry create registry.localhost -p 5000 || true
+        if [[ -z $SKIP_LOCAL ]]; then
+            build &
+        fi
         k3d cluster create --config "${BEE_CONFIG}"/k3d.yaml || true
         echo "waiting for the cluster..."
         until k3d kubeconfig get bee; do sleep 1; done
-        kubectl label --overwrite node k3d-bee-server-0 node-group=local || true
         echo "k3d cluster started..."
+        if [[ -z $SKIP_LOCAL ]]; then
+            # Wait for build
+            wait
+        fi
     fi
     kubectl create ns "${NAMESPACE}" || true
     if [[ $(helm repo list) != *ethersphere* ]]; then
@@ -213,14 +223,7 @@ build() {
                 --cache-from type=gha,ref=k3d-registry.localhost:5000/ethersphere/bee .
         fi
     else
-        if [[ -z $SKIP_PUSH ]]; then
-            docker buildx build --push -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" \
-                --cache-to type=registry,mode=max,ref=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}",compression=estargz \
-                --cache-from type=registry,ref=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" .
-        else
-            docker buildx build -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" \
-                --cache-from type=registry,ref=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" .
-        fi
+        docker build -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" .
     fi
     if [[ -z $SKIP_PUSH ]]; then
         docker push k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}"
@@ -238,28 +241,12 @@ install() {
     if [[ -z $SKIP_LOCAL ]]; then
         build
     fi
-    LAST_BEE=$((REPLICA-1))
-    if helm get values bee -n "${NAMESPACE}" -o json &> /dev/null; then # if release exists do rolling upgrade
-        BEES=$(seq $LAST_BEE -1 0)
-    else
-        BEES=$(seq 0 1 $LAST_BEE)
-    fi
-    helm upgrade --install bee -f "${BEE_CONFIG}"/bee.yaml "${CHART}" -n "${NAMESPACE}" --set image.repository="${IMAGE}" --set image.tag="${IMAGE_TAG}" --set replicaCount="${REPLICA}" ${CLEF} ${POSTAGE} ${PAYMENT} ${SWAP} ${HELM_OPTS}
-    for i in ${BEES}; do
-        echo "waiting for the bee-${i}..."
-        until [[ "$(curl -s bee-"${i}"-debug.localhost/readiness | jq -r .status 2>/dev/null)" == "ok" ]]; do sleep 1; done
-    done
-    if [[ -z $SKIP_PEER ]]; then
-        for i in ${BEES}; do
-            echo "waiting for full peer connectivity for bee-${i}..."
-            until [[ "$(curl -s bee-"${i}"-debug.localhost/peers | jq -r '.peers | length' 2> /dev/null)" -eq ${LAST_BEE} ]]; do sleep 1; done
-        done
-    fi
+    beekeeper create bee-cluster --cluster-name "${BEEKEEPER_CLUSTER}"
 }
 
 uninstall() {
     echo "uninstalling bee and geth releases..."
-    helm uninstall bee -n "${NAMESPACE}" || true
+    beekeeper delete bee-cluster --cluster-name "${BEEKEEPER_CLUSTER}" || true
     helm uninstall geth-swap -n "${NAMESPACE}" || true
     echo "uninstalled bee and geth releases..."
 }
@@ -336,30 +323,18 @@ del-hosts() {
     fi
 }
 
-ALLOW_OPTS=(clef postage skip-local skip-peer skip-vet skip-push disable-swap ci)
+ALLOW_OPTS=(skip-local skip-vet skip-push ci)
 for OPT in $OPTS; do
     if [[ " ${ALLOW_OPTS[*]} " == *"$OPT"* ]]; then
-        if [[ $OPT == "clef" ]]; then
-            CLEF="--set beeConfig.clef_signer_enable=true --set clefSettings.enabled=true"
-        fi
-        if [[ $OPT == "postage" ]]; then
-            POSTAGE="--set beeConfig.postage_stamp_address=0x538e6de1d876bbcd5667085257bc92f7c808a0f3 --set beeConfig.price_oracle_address=0xfc28330f1ece0ef2371b724e0d19c1ee60b728b2"
-        fi
         if [[ $OPT == "skip-local" ]]; then
             IMAGE="ethersphere/bee"
             SKIP_LOCAL="true"
-        fi
-        if [[ $OPT == "skip-peer" ]]; then
-            SKIP_PEER="true"
         fi
         if [[ $OPT == "skip-vet" ]]; then
             SKIP_VET="true"
         fi
         if [[ $OPT == "skip-push" ]]; then
             SKIP_PUSH="true"
-        fi
-        if [[ $OPT == "disable-swap" ]]; then
-            SWAP="--set beeConfig.swap_enable=false"
         fi
         if [[ $OPT == "ci" ]]; then
             CI="true"
@@ -386,8 +361,7 @@ if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
             start
         elif ! k3d cluster list bee --no-headers &> /dev/null; then
             k8s-local
-        fi
-        if [[ -z $SKIP_LOCAL ]] && [[ -z $CI ]]; then
+        elif [[ -z $SKIP_LOCAL ]]; then
             build
         fi
     else
