@@ -156,23 +156,33 @@ k8s-local() {
             docker load < "${K3S_FOLDER}"/k3s-airgap-client-go:"${GETH_VERSION}"-amd64.tar
             docker push k3d-registry.localhost:5000/ethereum/client-go:"${GETH_VERSION}"
         fi
-        # For CI run build in paralel
-        build &
+        if [[ -z $SKIP_LOCAL ]]; then
+            build &
+        fi
         INSTALL_K3S_SKIP_DOWNLOAD=true K3S_KUBECONFIG_MODE="644" INSTALL_K3S_EXEC="--disable=coredns" "${K3S_FOLDER}"/k3s_install.sh
         export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
         echo "waiting for the cluster..."
         until [[ $(kubectl get nodes --no-headers | cut -d' ' -f1) == "${HOSTNAME}" ]]; do sleep 1; done
         kubectl label --overwrite node "${HOSTNAME}" node-group=local || true
         echo "k3s cluster started..."
-        # Wait for build
-        wait
+        if [[ -z $SKIP_LOCAL ]]; then
+            # Wait for build
+            wait
+        fi
     else
         echo "starting k3d cluster..."
         k3d registry create registry.localhost -p 5000 || true
+        if [[ -z $SKIP_LOCAL ]]; then
+            build &
+        fi
         k3d cluster create --config "${BEE_CONFIG}"/k3d.yaml || true
         echo "waiting for the cluster..."
         until k3d kubeconfig get bee; do sleep 1; done
         echo "k3d cluster started..."
+        if [[ -z $SKIP_LOCAL ]]; then
+            # Wait for build
+            wait
+        fi
     fi
     kubectl create ns "${NAMESPACE}" || true
     if [[ $(helm repo list) != *ethersphere* ]]; then
@@ -313,30 +323,18 @@ del-hosts() {
     fi
 }
 
-ALLOW_OPTS=(clef postage skip-local skip-peer skip-vet skip-push disable-swap ci)
+ALLOW_OPTS=(skip-local skip-vet skip-push ci)
 for OPT in $OPTS; do
     if [[ " ${ALLOW_OPTS[*]} " == *"$OPT"* ]]; then
-        if [[ $OPT == "clef" ]]; then
-            CLEF="--set beeConfig.clef_signer_enable=true --set clefSettings.enabled=true"
-        fi
-        if [[ $OPT == "postage" ]]; then
-            POSTAGE="--set beeConfig.postage_stamp_address=0x538e6de1d876bbcd5667085257bc92f7c808a0f3 --set beeConfig.price_oracle_address=0xfc28330f1ece0ef2371b724e0d19c1ee60b728b2"
-        fi
         if [[ $OPT == "skip-local" ]]; then
             IMAGE="ethersphere/bee"
             SKIP_LOCAL="true"
-        fi
-        if [[ $OPT == "skip-peer" ]]; then
-            SKIP_PEER="true"
         fi
         if [[ $OPT == "skip-vet" ]]; then
             SKIP_VET="true"
         fi
         if [[ $OPT == "skip-push" ]]; then
             SKIP_PUSH="true"
-        fi
-        if [[ $OPT == "disable-swap" ]]; then
-            SWAP="--set beeConfig.swap_enable=false"
         fi
         if [[ $OPT == "ci" ]]; then
             CI="true"
@@ -363,9 +361,6 @@ if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
             start
         elif ! k3d cluster list bee --no-headers &> /dev/null; then
             k8s-local
-        fi
-        if [[ -z $SKIP_LOCAL ]] && [[ -z $CI ]]; then
-            build
         fi
     else
         $ACTION
