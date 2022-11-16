@@ -39,12 +39,7 @@ declare -x IMAGE=${IMAGE:-k3d-registry.localhost:5000/ethersphere/bee}
 declare -x IMAGE_TAG=${IMAGE_TAG:-latest}
 declare -x SETUP_CONTRACT_IMAGE_TAG=${SETUP_CONTRACT_IMAGE_TAG:-latest}
 declare -x NAMESPACE=${NAMESPACE:-local}
-declare -x PAYMENT_THRESHOLD=${PAYMENT_THRESHOLD}
-if [[ -n $PAYMENT_THRESHOLD ]]; then
-    PAYMENT="--set beeConfig.payment_threshold=${PAYMENT_THRESHOLD} --set beeConfig.payment_tolerance=$((PAYMENT_THRESHOLD/10)) --set beeConfig.payment_early=$((PAYMENT_THRESHOLD/10))"
-else
-    PAYMENT=
-fi
+declare -x BEEKEEPER_CLUSTER=${BEEKEEPER_CLUSTER:-local}
 
 check() {
     if ! grep -qE "docker|admin" <<< "$(id "$(whoami)")"; then
@@ -71,6 +66,12 @@ check() {
         echo "helm is missing..."
         echo "installing helm..."
         curl -sSL https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+    fi
+
+    if ! command -v beekeeper &> /dev/null; then
+        echo "helm is missing..."
+        echo "installing helm..."
+        make beekeeper BEEKEEPER_INSTALL_DIR="$(go env GOPATH)/bin"
     fi
 
     if [[ -n $CI ]]; then
@@ -179,6 +180,8 @@ k8s-local() {
         helm repo add ethersphere https://ethersphere.github.io/helm
     fi
     helm repo update
+    echo "waiting for the ingressroute crd..."
+    until kubectl get crd ingressroutes.traefik.containo.us &> /dev/null; do sleep 1; done
     # Install geth while waiting for traefik
     geth &
     echo "waiting for the kube-system..."
@@ -231,28 +234,12 @@ install() {
     if [[ -z $SKIP_LOCAL ]]; then
         build
     fi
-    LAST_BEE=$((REPLICA-1))
-    if helm get values bee -n "${NAMESPACE}" -o json &> /dev/null; then # if release exists do rolling upgrade
-        BEES=$(seq $LAST_BEE -1 0)
-    else
-        BEES=$(seq 0 1 $LAST_BEE)
-    fi
-    helm upgrade --install bee -f "${BEE_CONFIG}"/bee.yaml "${CHART}" -n "${NAMESPACE}" --set image.repository="${IMAGE}" --set image.tag="${IMAGE_TAG}" --set replicaCount="${REPLICA}" ${CLEF} ${POSTAGE} ${PAYMENT} ${SWAP} ${HELM_OPTS}
-    for i in ${BEES}; do
-        echo "waiting for the bee-${i}..."
-        until [[ "$(curl -s bee-"${i}"-debug.localhost/readiness | jq -r .status 2>/dev/null)" == "ok" ]]; do sleep 1; done
-    done
-    if [[ -z $SKIP_PEER ]]; then
-        for i in ${BEES}; do
-            echo "waiting for full peer connectivity for bee-${i}..."
-            until [[ "$(curl -s bee-"${i}"-debug.localhost/peers | jq -r '.peers | length' 2> /dev/null)" -eq ${LAST_BEE} ]]; do sleep 1; done
-        done
-    fi
+    make deploylocal BEEKEEPER_CLUSTER="${BEEKEEPER_CLUSTER}"
 }
 
 uninstall() {
     echo "uninstalling bee and geth releases..."
-    helm uninstall bee -n "${NAMESPACE}" || true
+    # helm uninstall bee -n "${NAMESPACE}" || true
     helm uninstall geth-swap -n "${NAMESPACE}" || true
     echo "uninstalled bee and geth releases..."
 }
