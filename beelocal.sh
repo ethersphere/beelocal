@@ -362,7 +362,7 @@ if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
         elif ! k3d cluster list bee --no-headers &> /dev/null; then
             k8s-local
         elif [[ -z $SKIP_LOCAL ]]; then
-            build &
+            build
         fi
     else
         $ACTION
