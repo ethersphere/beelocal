@@ -24,7 +24,7 @@ expr "$*" : ".*-h" > /dev/null && usage
 expr "$*" : ".*--help" > /dev/null && usage
 
 declare -x BEELOCAL_BRANCH=${BEELOCAL_BRANCH:-main}
-declare -x K3S_VERSION=${K3S_VERSION:-v1.20.15+k3s1}
+declare -x K3S_VERSION=${K3S_VERSION:-v1.21.14+k3s1}
 
 declare -x BOOTNODE_REPLICA=${BOOTNODE_REPLICA:-2}
 declare -x BEE_REPLICA=${BEE_REPLICA:-5}
@@ -115,11 +115,9 @@ config() {
         curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/bee.yaml -o "${BEE_TEMP}"/bee.yaml
         curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/geth-swap.yaml -o "${BEE_TEMP}"/geth-swap.yaml
         if [[ -n $CI ]]; then
-            curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/hack/coredns.yaml -o "${BEE_TEMP}"/coredns.yaml
             curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/hack/registries.yaml -o "${BEE_TEMP}"/registries.yaml
             curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/hack/traefik.yaml -o "${BEE_TEMP}"/traefik.yaml
             sudo cp "${BEE_TEMP}"/registries.yaml /etc/rancher/k3s/registries.yaml
-            sudo cp "${BEE_TEMP}"/coredns.yaml /var/lib/rancher/k3s/server/manifests/coredns-custom.yaml
             sudo cp "${BEE_TEMP}"/traefik.yaml /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
         fi
         BEE_CONFIG="${BEE_TEMP}"
@@ -159,7 +157,7 @@ k8s-local() {
         if [[ -z $SKIP_LOCAL ]]; then
             build &
         fi
-        INSTALL_K3S_SKIP_DOWNLOAD=true K3S_KUBECONFIG_MODE="644" INSTALL_K3S_EXEC="--disable=coredns" "${K3S_FOLDER}"/k3s_install.sh
+        INSTALL_K3S_SKIP_DOWNLOAD=true K3S_KUBECONFIG_MODE="644" "${K3S_FOLDER}"/k3s_install.sh
         export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
         echo "waiting for the cluster..."
         until [[ $(kubectl get nodes --no-headers | cut -d' ' -f1) == "${HOSTNAME}" ]]; do sleep 1; done
@@ -189,6 +187,8 @@ k8s-local() {
         helm repo add ethersphere https://ethersphere.github.io/helm
     fi
     helm repo update
+    echo "waiting for the ingressroute crd..."
+    until kubectl get crd ingressroutes.traefik.containo.us &> /dev/null; do sleep 1; done
     # Install geth while waiting for traefik
     geth &
     echo "waiting for the kube-system..."
