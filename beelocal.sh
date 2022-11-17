@@ -32,7 +32,7 @@ declare -x BEE_REPLICA=${BEE_REPLICA:-5}
 declare -x K3S_FOLDER=${K3S_FOLDER:-"/tmp/k3s-${K3S_VERSION}-v3"}
 
 declare -x DOCKER_BUILDKIT="1"
-declare -x ACTION=${ACTION:-prepare}
+declare -x ACTION=${ACTION:-run}
 declare -x REPLICA=${REPLICA:-3}
 declare -x CHART=${CHART:-ethersphere/bee}
 declare -x IMAGE=${IMAGE:-k3d-registry.localhost:5000/ethersphere/bee}
@@ -305,15 +305,16 @@ destroy() {
 
 add-hosts() {
     if ! grep -q 'swarm bee' /etc/hosts; then
-        hosts_header="# This entries are to expose swarm bee services inside k3d cluster to the localhost\n"
+        hosts_header="# Added by beelocal\n# This entries are to expose swarm bee services inside k3d cluster to the localhost\n"
+        hosts_footer="# End of section\n"
         hosts_entry="127.0.255.255\tk3d-registry.localhost geth-swap.localhost"
         for ((i=0; i<BOOTNODE_REPLICA; i++)); do hosts_entry="${hosts_entry} bootnode-${i}.localhost bootnode-${i}-debug.localhost"; done
         for ((i=0; i<BEE_REPLICA; i++)); do hosts_entry="${hosts_entry} bee-${i}.localhost bee-${i}-debug.localhost"; done
-        echo -e "${hosts_header}""${hosts_entry}" | sudo tee -a /etc/hosts
+        echo -e "${hosts_header}""${hosts_entry}""${hosts_footer}" | sudo tee -a /etc/hosts &> /dev/null
         if [[ $(uname -s) == Darwin ]]; then
             if ! ifconfig lo0 | grep -q 127.0.255.255; then
                 # On macOS we need to add alias so that other ip then 127.0.0.1 is accessible on the loopback interface
-                sudo ifconfig lo0 alias 127.0.255.255 up
+                sudo ifconfig lo0 alias 127.0.255.255 up &> /dev/null
             fi
         fi
     fi
@@ -321,10 +322,10 @@ add-hosts() {
 
 del-hosts() {
     if grep -q 'swarm bee' /etc/hosts; then
-        grep -vE 'swarm bee|k3d-registry.localhost' /etc/hosts | sudo tee /etc/hosts
+        grep -vE 'swarm bee|k3d-registry.localhost' /etc/hosts | sudo tee /etc/hosts &> /dev/null
         if [[ $(uname -s) == Darwin ]]; then
             if ifconfig lo0 | grep -q 127.0.255.255; then
-                sudo ifconfig lo0 -alias 127.0.255.255
+                sudo ifconfig lo0 -alias 127.0.255.255 &> /dev/null
             fi 
         fi
     fi
