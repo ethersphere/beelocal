@@ -183,7 +183,7 @@ k8s-local() {
     if [[ $(helm repo list) != *ethersphere* ]]; then
         helm repo add ethersphere https://ethersphere.github.io/helm
     fi
-    helm repo update
+    helm repo update ethersphere
     echo "waiting for the ingressroute crd..."
     until kubectl get crd ingressroutes.traefik.containo.us &> /dev/null; do sleep 1; done
     # Install geth while waiting for traefik
