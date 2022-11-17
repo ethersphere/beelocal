@@ -300,6 +300,7 @@ destroy() {
         fi
         echo "detroyed k3d cluster..."
     fi
+    del-hosts
 }
 
 add-hosts() {
@@ -310,16 +311,22 @@ add-hosts() {
         for ((i=0; i<BEE_REPLICA; i++)); do hosts_entry="${hosts_entry} bee-${i}.localhost bee-${i}-debug.localhost"; done
         echo -e "${hosts_header}""${hosts_entry}" | sudo tee -a /etc/hosts
         if [[ $(uname -s) == Darwin ]]; then
-            # On macOS we need to add alias so that other ip then 127.0.0.1 is accessible on the loopback interface
-            sudo ifconfig lo0 alias 127.0.255.255 up
+            if ! ifconfig lo0 | grep -q 127.0.255.255; then
+                # On macOS we need to add alias so that other ip then 127.0.0.1 is accessible on the loopback interface
+                sudo ifconfig lo0 alias 127.0.255.255 up
+            fi
         fi
     fi
 }
 
 del-hosts() {
-    grep -vE 'swarm bee|k3d-registry.localhost' /etc/hosts | sudo tee /etc/hosts
-    if [[ $(uname -s) == Darwin ]]; then
-        sudo ifconfig lo0 -alias 127.0.255.255
+    if grep -q 'swarm bee' /etc/hosts; then
+        grep -vE 'swarm bee|k3d-registry.localhost' /etc/hosts | sudo tee /etc/hosts
+        if [[ $(uname -s) == Darwin ]]; then
+            if ifconfig lo0 | grep -q 127.0.255.255; then
+                sudo ifconfig lo0 -alias 127.0.255.255
+            fi 
+        fi
     fi
 }
 
@@ -349,6 +356,7 @@ ACTIONS=(build check destroy geth install k8s-local uninstall start stop run pre
 if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
     if [[ $ACTION == "run" ]]; then
         check
+        add-hosts
         if [[ $(k3d cluster list bee -o json 2>/dev/null| jq -r .[0].serversRunning) == "0" ]]; then
             start
         elif ! k3d cluster list bee --no-headers &> /dev/null; then
@@ -357,6 +365,7 @@ if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
         install
     elif [[ $ACTION == "prepare" ]]; then
         check
+        add-hosts
         if [[ $(k3d cluster list bee -o json 2>/dev/null| jq -r .[0].serversRunning) == "0" ]]; then
             start
         elif ! k3d cluster list bee --no-headers &> /dev/null; then
