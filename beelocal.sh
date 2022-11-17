@@ -306,7 +306,7 @@ destroy() {
 add-hosts() {
     if ! grep -q 'swarm bee' /etc/hosts; then
         hosts_header="# Added by beelocal\n# This entries are to expose swarm bee services inside k3d cluster to the localhost\n"
-        hosts_footer="# End of section\n"
+        hosts_footer="\n# End of section\n"
         hosts_entry="127.0.255.255\tk3d-registry.localhost geth-swap.localhost"
         for ((i=0; i<BOOTNODE_REPLICA; i++)); do hosts_entry="${hosts_entry} bootnode-${i}.localhost bootnode-${i}-debug.localhost"; done
         for ((i=0; i<BEE_REPLICA; i++)); do hosts_entry="${hosts_entry} bee-${i}.localhost bee-${i}-debug.localhost"; done
