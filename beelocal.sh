@@ -69,8 +69,8 @@ check() {
     fi
 
     if ! command -v beekeeper &> /dev/null; then
-        echo "helm is missing..."
-        echo "installing helm..."
+        echo "beekeeper is missing..."
+        echo "installing beekeeper..."
         make beekeeper BEEKEEPER_INSTALL_DIR="$(go env GOPATH)/bin"
     fi
 
@@ -112,13 +112,10 @@ config() {
         BEE_TEMP=$(mktemp -d -t bee-XXX)
         trap 'rm -rf ${BEE_TEMP}' EXIT
         curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/k3d.yaml -o "${BEE_TEMP}"/k3d.yaml
-        curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/bee.yaml -o "${BEE_TEMP}"/bee.yaml
         curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/geth-swap.yaml -o "${BEE_TEMP}"/geth-swap.yaml
         if [[ -n $CI ]]; then
             curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/hack/registries.yaml -o "${BEE_TEMP}"/registries.yaml
-            curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/hack/traefik.yaml -o "${BEE_TEMP}"/traefik.yaml
             sudo cp "${BEE_TEMP}"/registries.yaml /etc/rancher/k3s/registries.yaml
-            sudo cp "${BEE_TEMP}"/traefik.yaml /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
         fi
         BEE_CONFIG="${BEE_TEMP}"
     fi
