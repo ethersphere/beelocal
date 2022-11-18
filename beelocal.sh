@@ -34,7 +34,6 @@ declare -x K3S_FOLDER=${K3S_FOLDER:-"/tmp/k3s-${K3S_VERSION}-v3"}
 declare -x DOCKER_BUILDKIT="1"
 declare -x ACTION=${ACTION:-run}
 declare -x REPLICA=${REPLICA:-3}
-declare -x CHART=${CHART:-ethersphere/bee}
 declare -x IMAGE=${IMAGE:-k3d-registry.localhost:5000/ethersphere/bee}
 declare -x IMAGE_TAG=${IMAGE_TAG:-latest}
 declare -x SETUP_CONTRACT_IMAGE_TAG=${SETUP_CONTRACT_IMAGE_TAG:-latest}
@@ -181,9 +180,9 @@ k8s-local() {
     fi
     kubectl create ns "${NAMESPACE}" || true
     if [[ $(helm repo list) != *ethersphere* ]]; then
-        helm repo add ethersphere https://ethersphere.github.io/helm
+        helm repo add ethersphere https://ethersphere.github.io/helm &> /dev/null
     fi
-    helm repo update ethersphere
+    helm repo update ethersphere &> /dev/null
     echo "waiting for the ingressroute crd..."
     until kubectl get crd ingressroutes.traefik.containo.us &> /dev/null; do sleep 1; done
     # Install geth while waiting for traefik
