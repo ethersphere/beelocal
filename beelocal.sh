@@ -10,11 +10,11 @@ set -eo pipefail
 #/ Spinup local k8s infra with geth and bee up and running
 #/
 #/ Example:
-#/ REPLICA=5 ACTION=install OPTS="clef" ./beelocal.sh
+#/ ACTION=install OPTS="clef" ./beelocal.sh
 #/
 #/ ACTION=install OPTS="clef skip-local" ./beelocal.sh
 #/
-#/ Actions: build check destroy geth install k8s-local uninstall start stop
+#/ Actions: build check destroy geth install k8s-local uninstall start stop add-hosts
 #/
 #/ Options: clef postage skip-local skip-peer
 
@@ -23,17 +23,14 @@ usage() { grep '^#/' "$0" | cut -c4- ; exit 0 ; }
 expr "$*" : ".*-h" > /dev/null && usage
 expr "$*" : ".*--help" > /dev/null && usage
 
+declare -x DOCKER_BUILDKIT="1"
 declare -x BEELOCAL_BRANCH=${BEELOCAL_BRANCH:-main}
+
 declare -x K3S_VERSION=${K3S_VERSION:-v1.21.14+k3s1}
-
-declare -x BOOTNODE_REPLICA=${BOOTNODE_REPLICA:-2}
-declare -x BEE_REPLICA=${BEE_REPLICA:-5}
-
 declare -x K3S_FOLDER=${K3S_FOLDER:-"/tmp/k3s-${K3S_VERSION}-v3"}
 
-declare -x DOCKER_BUILDKIT="1"
 declare -x ACTION=${ACTION:-run}
-declare -x REPLICA=${REPLICA:-3}
+
 declare -x IMAGE=${IMAGE:-k3d-registry.localhost:5000/ethersphere/bee}
 declare -x IMAGE_TAG=${IMAGE_TAG:-latest}
 declare -x SETUP_CONTRACT_IMAGE_TAG=${SETUP_CONTRACT_IMAGE_TAG:-latest}
@@ -70,6 +67,7 @@ check() {
     if ! command -v beekeeper &> /dev/null; then
         echo "beekeeper is missing..."
         echo "installing beekeeper..."
+        mkdir -p "$(go env GOPATH)/bin"
         make beekeeper BEEKEEPER_INSTALL_DIR="$(go env GOPATH)/bin"
     fi
 
@@ -178,7 +176,6 @@ k8s-local() {
             wait
         fi
     fi
-    kubectl create ns "${NAMESPACE}" || true
     if [[ $(helm repo list) != *ethersphere* ]]; then
         helm repo add ethersphere https://ethersphere.github.io/helm &> /dev/null
     fi
@@ -252,7 +249,7 @@ geth() {
         echo "geth already installed..."
     else
         echo "installing geth..."
-        helm install geth-swap ethersphere/geth-swap -n "${NAMESPACE}" -f "${BEE_CONFIG}"/geth-swap.yaml --set imageSetupContract.tag="${SETUP_CONTRACT_IMAGE_TAG}" ${GETH_HELM_OPTS}
+        helm install geth-swap ethersphere/geth-swap --create-namespace -n "${NAMESPACE}" -f "${BEE_CONFIG}"/geth-swap.yaml --set imageSetupContract.tag="${SETUP_CONTRACT_IMAGE_TAG}" ${GETH_HELM_OPTS}
         echo "waiting for the geth init..."
         until [[ $(kubectl get pod -n "${NAMESPACE}" -l job-name=geth-swap-setupcontracts -o json | jq -r '.items|last|.status.containerStatuses[0].state.terminated.reason' 2>/dev/null) == "Completed" ]]; do sleep 1; done
         echo "installed geth..."
@@ -304,8 +301,10 @@ add-hosts() {
         hosts_header="# Added by beelocal\n# This entries are to expose swarm bee services inside k3d cluster to the localhost\n"
         hosts_footer="\n# End of beelocal section\n"
         hosts_entry="127.0.0.1\tk3d-registry.localhost geth-swap.localhost"
-        for ((i=0; i<BOOTNODE_REPLICA; i++)); do hosts_entry="${hosts_entry} bootnode-${i}.localhost bootnode-${i}-debug.localhost"; done
-        for ((i=0; i<BEE_REPLICA; i++)); do hosts_entry="${hosts_entry} bee-${i}.localhost bee-${i}-debug.localhost"; done
+        for ((i=0; i<2; i++)); do hosts_entry="${hosts_entry} bootnode-${i}.localhost bootnode-${i}-debug.localhost"; done
+        for ((i=0; i<5; i++)); do hosts_entry="${hosts_entry} bee-${i}.localhost bee-${i}-debug.localhost"; done
+        for ((i=0; i<2; i++)); do hosts_entry="${hosts_entry} light-${i}.localhost light-${i}-debug.localhost"; done
+        for ((i=0; i<2; i++)); do hosts_entry="${hosts_entry} restricted-${i}.localhost restricted-${i}-debug.localhost"; done
         echo -e "${hosts_header}""${hosts_entry}""${hosts_footer}" | sudo tee -a /etc/hosts &> /dev/null
     fi
 }
