@@ -10,11 +10,11 @@ set -eo pipefail
 #/ Spinup local k8s infra with geth and bee up and running
 #/
 #/ Example:
-#/ REPLICA=5 ACTION=install OPTS="clef" ./beelocal.sh
+#/ ACTION=install OPTS="clef" ./beelocal.sh
 #/
 #/ ACTION=install OPTS="clef skip-local" ./beelocal.sh
 #/
-#/ Actions: build check destroy geth install k8s-local uninstall start stop
+#/ Actions: build check destroy geth install k8s-local uninstall start stop add-hosts
 #/
 #/ Options: clef postage skip-local skip-peer
 
@@ -23,20 +23,17 @@ usage() { grep '^#/' "$0" | cut -c4- ; exit 0 ; }
 expr "$*" : ".*-h" > /dev/null && usage
 expr "$*" : ".*--help" > /dev/null && usage
 
+declare -x DOCKER_BUILDKIT="1"
 declare -x BEELOCAL_BRANCH=${BEELOCAL_BRANCH:-main}
 declare -x K3S_VERSION=${K3S_VERSION:-v1.21.14+k3s1}
 
-declare -x BOOTNODE_REPLICA=${BOOTNODE_REPLICA:-2}
-declare -x BEE_REPLICA=${BEE_REPLICA:-5}
-
 declare -x K3S_FOLDER=${K3S_FOLDER:-"/tmp/k3s-${K3S_VERSION}-v3"}
 
-declare -x DOCKER_BUILDKIT="1"
-declare -x ACTION=${ACTION:-prepare}
-declare -x REPLICA=${REPLICA:-3}
-declare -x CHART=${CHART:-ethersphere/bee}
+declare -x ACTION=${ACTION:-run}
+
 declare -x IMAGE=${IMAGE:-k3d-registry.localhost:5000/ethersphere/bee}
 declare -x IMAGE_TAG=${IMAGE_TAG:-latest}
+declare -x SETUP_CONTRACT_IMAGE=${SETUP_CONTRACT_IMAGE:-ethersphere/setup-contracts}
 declare -x SETUP_CONTRACT_IMAGE_TAG=${SETUP_CONTRACT_IMAGE_TAG:-latest}
 declare -x NAMESPACE=${NAMESPACE:-local}
 declare -x BEEKEEPER_CLUSTER=${BEEKEEPER_CLUSTER:-local}
@@ -69,8 +66,9 @@ check() {
     fi
 
     if ! command -v beekeeper &> /dev/null; then
-        echo "helm is missing..."
-        echo "installing helm..."
+        echo "beekeeper is missing..."
+        echo "installing beekeeper..."
+        mkdir -p "$(go env GOPATH)/bin"
         make beekeeper BEEKEEPER_INSTALL_DIR="$(go env GOPATH)/bin"
     fi
 
@@ -112,13 +110,10 @@ config() {
         BEE_TEMP=$(mktemp -d -t bee-XXX)
         trap 'rm -rf ${BEE_TEMP}' EXIT
         curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/k3d.yaml -o "${BEE_TEMP}"/k3d.yaml
-        curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/bee.yaml -o "${BEE_TEMP}"/bee.yaml
         curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/geth-swap.yaml -o "${BEE_TEMP}"/geth-swap.yaml
         if [[ -n $CI ]]; then
             curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/hack/registries.yaml -o "${BEE_TEMP}"/registries.yaml
-            curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/hack/traefik.yaml -o "${BEE_TEMP}"/traefik.yaml
             sudo cp "${BEE_TEMP}"/registries.yaml /etc/rancher/k3s/registries.yaml
-            sudo cp "${BEE_TEMP}"/traefik.yaml /var/lib/rancher/k3s/server/manifests/traefik-config.yaml
         fi
         BEE_CONFIG="${BEE_TEMP}"
     fi
@@ -182,11 +177,10 @@ k8s-local() {
             wait
         fi
     fi
-    kubectl create ns "${NAMESPACE}" || true
     if [[ $(helm repo list) != *ethersphere* ]]; then
-        helm repo add ethersphere https://ethersphere.github.io/helm
+        helm repo add ethersphere https://ethersphere.github.io/helm &> /dev/null
     fi
-    helm repo update
+    helm repo update ethersphere &> /dev/null
     echo "waiting for the ingressroute crd..."
     until kubectl get crd ingressroutes.traefik.containo.us &> /dev/null; do sleep 1; done
     # Install geth while waiting for traefik
@@ -256,7 +250,7 @@ geth() {
         echo "geth already installed..."
     else
         echo "installing geth..."
-        helm install geth-swap ethersphere/geth-swap -n "${NAMESPACE}" -f "${BEE_CONFIG}"/geth-swap.yaml --set imageSetupContract.tag="${SETUP_CONTRACT_IMAGE_TAG}" ${GETH_HELM_OPTS}
+        helm install geth-swap ethersphere/geth-swap --create-namespace -n "${NAMESPACE}" -f "${BEE_CONFIG}"/geth-swap.yaml --set imageSetupContract.repository="${SETUP_CONTRACT_IMAGE}" --set imageSetupContract.tag="${SETUP_CONTRACT_IMAGE_TAG}" ${GETH_HELM_OPTS}
         echo "waiting for the geth init..."
         until [[ $(kubectl get pod -n "${NAMESPACE}" -l job-name=geth-swap-setupcontracts -o json | jq -r '.items|last|.status.containerStatuses[0].state.terminated.reason' 2>/dev/null) == "Completed" ]]; do sleep 1; done
         echo "installed geth..."
@@ -300,26 +294,25 @@ destroy() {
         fi
         echo "detroyed k3d cluster..."
     fi
+    del-hosts
 }
 
 add-hosts() {
     if ! grep -q 'swarm bee' /etc/hosts; then
-        hosts_header="# This entries are to expose swarm bee services inside k3d cluster to the localhost\n"
-        hosts_entry="127.0.255.255\tk3d-registry.localhost geth-swap.localhost"
-        for ((i=0; i<BOOTNODE_REPLICA; i++)); do hosts_entry="${hosts_entry} bootnode-${i}.localhost bootnode-${i}-debug.localhost"; done
-        for ((i=0; i<BEE_REPLICA; i++)); do hosts_entry="${hosts_entry} bee-${i}.localhost bee-${i}-debug.localhost"; done
-        echo -e "${hosts_header}""${hosts_entry}" | sudo tee -a /etc/hosts
-        if [[ $(uname -s) == Darwin ]]; then
-            # On macOS we need to add alias so that other ip then 127.0.0.1 is accessible on the loopback interface
-            sudo ifconfig lo0 alias 127.0.255.255 up
-        fi
+        hosts_header="# Added by beelocal\n# This entries are to expose swarm bee services inside k3d cluster to the localhost\n"
+        hosts_footer="\n# End of beelocal section\n"
+        hosts_entry="127.0.0.1\tk3d-registry.localhost geth-swap.localhost"
+        for ((i=0; i<2; i++)); do hosts_entry="${hosts_entry} bootnode-${i}.localhost bootnode-${i}-debug.localhost"; done
+        for ((i=0; i<5; i++)); do hosts_entry="${hosts_entry} bee-${i}.localhost bee-${i}-debug.localhost"; done
+        for ((i=0; i<2; i++)); do hosts_entry="${hosts_entry} light-${i}.localhost light-${i}-debug.localhost"; done
+        for ((i=0; i<2; i++)); do hosts_entry="${hosts_entry} restricted-${i}.localhost restricted-${i}-debug.localhost"; done
+        echo -e "${hosts_header}""${hosts_entry}""${hosts_footer}" | sudo tee -a /etc/hosts &> /dev/null
     fi
 }
 
 del-hosts() {
-    grep -vE 'swarm bee|k3d-registry.localhost' /etc/hosts | sudo tee /etc/hosts
-    if [[ $(uname -s) == Darwin ]]; then
-        sudo ifconfig lo0 -alias 127.0.255.255
+    if grep -q 'swarm bee' /etc/hosts; then
+        grep -vE 'swarm bee|k3d-registry.localhost|beelocal' /etc/hosts | sudo tee /etc/hosts &> /dev/null
     fi
 }
 
@@ -349,6 +342,7 @@ ACTIONS=(build check destroy geth install k8s-local uninstall start stop run pre
 if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
     if [[ $ACTION == "run" ]]; then
         check
+        add-hosts
         if [[ $(k3d cluster list bee -o json 2>/dev/null| jq -r .[0].serversRunning) == "0" ]]; then
             start
         elif ! k3d cluster list bee --no-headers &> /dev/null; then
@@ -357,6 +351,7 @@ if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
         install
     elif [[ $ACTION == "prepare" ]]; then
         check
+        add-hosts
         if [[ $(k3d cluster list bee -o json 2>/dev/null| jq -r .[0].serversRunning) == "0" ]]; then
             start
         elif ! k3d cluster list bee --no-headers &> /dev/null; then
