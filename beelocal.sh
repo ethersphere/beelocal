@@ -14,9 +14,9 @@ set -eo pipefail
 #/
 #/ ACTION=install OPTS="clef skip-local" ./beelocal.sh
 #/
-#/ Actions: build check destroy geth install k8s-local uninstall start stop add-hosts
+#/ Actions: build check prepare destroy geth install k8s-local uninstall start stop
 #/
-#/ Options: clef postage skip-local skip-peer
+#/ Options: skip-local skip-vet skip-push ci
 
 # parse file and print usage text
 usage() { grep '^#/' "$0" | cut -c4- ; exit 0 ; }
@@ -25,9 +25,9 @@ expr "$*" : ".*--help" > /dev/null && usage
 
 declare -x DOCKER_BUILDKIT="1"
 declare -x BEELOCAL_BRANCH=${BEELOCAL_BRANCH:-main}
-declare -x K3S_VERSION=${K3S_VERSION:-v1.21.14+k3s1}
+declare -x K3S_VERSION=${K3S_VERSION:-v1.22.17+k3s1}
 
-declare -x K3S_FOLDER=${K3S_FOLDER:-"/tmp/k3s-${K3S_VERSION}-v3"}
+declare -x K3S_FOLDER=${K3S_FOLDER:-"/tmp/k3s-${K3S_VERSION}"}
 
 declare -x ACTION=${ACTION:-run}
 
