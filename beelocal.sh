@@ -14,7 +14,7 @@ set -eo pipefail
 #/
 #/ ACTION=install OPTS="clef skip-local" ./beelocal.sh
 #/
-#/ Actions: build check preparedestroy geth install k8s-local uninstall start stop
+#/ Actions: build check prepare destroy geth install k8s-local uninstall start stop
 #/
 #/ Options: skip-local skip-vet skip-push ci
 
