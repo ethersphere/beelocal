@@ -4,7 +4,7 @@ metadata:
   name: bee
 kubeAPI:
   host: "127.0.0.1"
-image: rancher/k3s:v1.22.17+k3s1
+image: rancher/k3s:v1.22.17-k3s1
 ports:
   - port: 80:80
     nodeFilters:
