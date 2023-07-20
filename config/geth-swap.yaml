@@ -5,11 +5,11 @@ geth:
       period: 1
 
 imageSetupContract:
-  tag: 0.9.4
+  tag: 0.9.9
 
 image:
   repository: ethereum/client-go
-  tag: v1.10.4
+  tag: v1.10.18
   pullPolicy: IfNotPresent
 resources:
   limits:
