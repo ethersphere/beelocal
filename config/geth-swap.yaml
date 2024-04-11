@@ -5,7 +5,8 @@ geth:
       period: 1
 
 imageSetupContract:
-  tag: 0.9.9
+  repository: ethersphere/bee-localchain
+  tag: 0.7.0
 
 image:
   repository: ethereum/client-go
