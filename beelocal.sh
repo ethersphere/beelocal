@@ -33,7 +33,7 @@ declare -x ACTION=${ACTION:-run}
 
 declare -x IMAGE=${IMAGE:-k3d-registry.localhost:5000/ethersphere/bee}
 declare -x IMAGE_TAG=${IMAGE_TAG:-latest}
-declare -x SETUP_CONTRACT_IMAGE=${SETUP_CONTRACT_IMAGE:-ethersphere/setup-contracts}
+declare -x SETUP_CONTRACT_IMAGE=${SETUP_CONTRACT_IMAGE:-ethersphere/bee-localchain}
 declare -x SETUP_CONTRACT_IMAGE_TAG=${SETUP_CONTRACT_IMAGE_TAG:-latest}
 declare -x NAMESPACE=${NAMESPACE:-local}
 declare -x BEEKEEPER_CLUSTER=${BEEKEEPER_CLUSTER:-local}
