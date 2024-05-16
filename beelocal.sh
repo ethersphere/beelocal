@@ -302,10 +302,10 @@ add-hosts() {
         hosts_header="# Added by beelocal\n# This entries are to expose swarm bee services inside k3d cluster to the localhost\n"
         hosts_footer="\n# End of beelocal section\n"
         hosts_entry="127.0.0.1\tk3d-registry.localhost geth-swap.localhost"
-        for ((i=0; i<2; i++)); do hosts_entry="${hosts_entry} bootnode-${i}.localhost bootnode-${i}-debug.localhost"; done
-        for ((i=0; i<5; i++)); do hosts_entry="${hosts_entry} bee-${i}.localhost bee-${i}-debug.localhost"; done
-        for ((i=0; i<2; i++)); do hosts_entry="${hosts_entry} light-${i}.localhost light-${i}-debug.localhost"; done
-        for ((i=0; i<2; i++)); do hosts_entry="${hosts_entry} restricted-${i}.localhost restricted-${i}-debug.localhost"; done
+        for ((i=0; i<2; i++)); do hosts_entry="${hosts_entry} bootnode-${i}.localhost"; done
+        for ((i=0; i<5; i++)); do hosts_entry="${hosts_entry} bee-${i}.localhost"; done
+        for ((i=0; i<2; i++)); do hosts_entry="${hosts_entry} light-${i}.localhost"; done
+        for ((i=0; i<2; i++)); do hosts_entry="${hosts_entry} restricted-${i}.localhost"; done
         echo -e "${hosts_header}""${hosts_entry}""${hosts_footer}" | sudo tee -a /etc/hosts &> /dev/null
     fi
 }
