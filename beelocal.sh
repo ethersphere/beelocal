@@ -25,7 +25,7 @@ expr "$*" : ".*--help" > /dev/null && usage
 
 declare -x DOCKER_BUILDKIT="1"
 declare -x BEELOCAL_BRANCH=${BEELOCAL_BRANCH:-main}
-declare -x K3S_VERSION=${K3S_VERSION:-v1.22.17+k3s1}
+declare -x K3S_VERSION=${K3S_VERSION:-v1.30.3+k3s1}
 
 declare -x K3S_FOLDER=${K3S_FOLDER:-"/tmp/k3s-${K3S_VERSION}"}
 
