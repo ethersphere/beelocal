@@ -217,7 +217,7 @@ build() {
                 --cache-from type=gha,ref=k3d-registry.localhost:5000/ethersphere/bee .
         fi
     else
-        docker build -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" .
+        make docker-build IMAGE=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}"
     fi
     if [[ -z $SKIP_PUSH ]]; then
         docker push k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}"
