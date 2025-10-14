@@ -5,16 +5,6 @@ metadata:
   namespace: kube-system
 spec:
   valuesContent: |-
-    dashboard:
-      enabled: true
-      service:
-        type: ClusterIP
-      ingressRoute:
-        enabled: true
-        annotations:
-          traefik.ingress.kubernetes.io/router.entrypoints: web
-        match: Host(`traefik.localhost`)
-    
     additionalArguments:
       - "--entryPoints.web.transport.respondingTimeouts.readTimeout=300s"
       - "--entryPoints.web.transport.respondingTimeouts.writeTimeout=300s"
@@ -22,8 +12,6 @@ spec:
       - "--entryPoints.websecure.transport.respondingTimeouts.readTimeout=300s"
       - "--entryPoints.websecure.transport.respondingTimeouts.writeTimeout=300s"
       - "--entryPoints.websecure.transport.respondingTimeouts.idleTimeout=300s"
-      - "--api.dashboard=true"
-      - "--api.insecure=true"
       - "--accesslog=true"
       - "--accesslog.format=json"
       - "--log.level=DEBUG"
