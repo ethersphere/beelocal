@@ -265,14 +265,11 @@ configure-traefik() {
     fi
     echo "configuring Traefik with custom timeouts..."
     
-    # Check for valid config files in order of preference
     local config_file=""
     
-    # First try local config file
     if [[ -f "./config/traefik-config.yaml" ]] && grep -q "apiVersion:" "./config/traefik-config.yaml"; then
         config_file="./config/traefik-config.yaml"
         echo "Using local traefik-config.yaml"
-    # Then try temp config file if it's valid
     elif [[ -f "${BEE_CONFIG}/traefik-config.yaml" ]] && grep -q "apiVersion:" "${BEE_CONFIG}/traefik-config.yaml"; then
         config_file="${BEE_CONFIG}/traefik-config.yaml"
         echo "Using downloaded traefik-config.yaml"
@@ -285,11 +282,10 @@ configure-traefik() {
         kubectl rollout status deployment/traefik -n kube-system --timeout=120s || echo "Warning: Traefik rollout status check failed"
         echo "Traefik configuration applied successfully"
         echo "Current Traefik timeout settings:"
-        kubectl describe deployment traefik -n kube-system | grep -E "entryPoints.*timeout" || echo "No timeout settings found in deployment description"
+        kubectl describe deployment traefik -n kube-system | grep -E "entryPoints.*Timeout" || echo "No timeout settings found in deployment description"
     else
         echo "Info: No valid Traefik config file found, using default timeouts"
         echo "Looked for valid configs in: ${BEE_CONFIG}/traefik-config.yaml and ./config/traefik-config.yaml"
-        # Don't exit with error when called from k8s-local, just use defaults
         if [[ "${FUNCNAME[1]}" != "k8s-local" ]]; then
             exit 1
         fi
