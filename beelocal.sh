@@ -111,6 +111,7 @@ config() {
         trap 'rm -rf ${BEE_TEMP}' EXIT
         curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/k3d.yaml -o "${BEE_TEMP}"/k3d.yaml
         curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/geth-swap.yaml -o "${BEE_TEMP}"/geth-swap.yaml
+        curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/traefik-config.yaml -o "${BEE_TEMP}"/traefik-config.yaml
         if [[ -n $CI ]]; then
             curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/hack/registries.yaml -o "${BEE_TEMP}"/registries.yaml
             sudo cp "${BEE_TEMP}"/registries.yaml /etc/rancher/k3s/registries.yaml
@@ -189,6 +190,7 @@ k8s-local() {
     until kubectl get svc traefik -n kube-system &> /dev/null; do sleep 1; done
     # Wait for geth
     wait
+    configure-traefik
     echo "cluster running..."
 }
 
@@ -254,6 +256,43 @@ geth() {
         echo "waiting for the geth init..."
         until [[ $(kubectl get pod -n "${NAMESPACE}" -l job-name=geth-swap-setupcontracts -o json | jq -r '.items|last|.status.containerStatuses[0].state.terminated.reason' 2>/dev/null) == "Completed" ]]; do sleep 1; done
         echo "installed geth..."
+    fi
+}
+
+configure-traefik() {
+    if [[ -z $BEE_CONFIG ]]; then
+        config
+    fi
+    echo "configuring Traefik with custom timeouts..."
+    
+    # Check for valid config files in order of preference
+    local config_file=""
+    
+    # First try local config file
+    if [[ -f "./config/traefik-config.yaml" ]] && grep -q "apiVersion:" "./config/traefik-config.yaml"; then
+        config_file="./config/traefik-config.yaml"
+        echo "Using local traefik-config.yaml"
+    # Then try temp config file if it's valid
+    elif [[ -f "${BEE_CONFIG}/traefik-config.yaml" ]] && grep -q "apiVersion:" "${BEE_CONFIG}/traefik-config.yaml"; then
+        config_file="${BEE_CONFIG}/traefik-config.yaml"
+        echo "Using downloaded traefik-config.yaml"
+    fi
+    
+    if [[ -n "$config_file" ]]; then
+        kubectl apply -f "$config_file" || echo "Warning: Failed to apply Traefik config"
+        echo "waiting for Traefik to restart with new configuration..."
+        kubectl rollout restart deployment/traefik -n kube-system || echo "Warning: Failed to restart Traefik"
+        kubectl rollout status deployment/traefik -n kube-system --timeout=120s || echo "Warning: Traefik rollout status check failed"
+        echo "Traefik configuration applied successfully"
+        echo "Current Traefik timeout settings:"
+        kubectl describe deployment traefik -n kube-system | grep -E "entryPoints.*timeout" || echo "No timeout settings found in deployment description"
+    else
+        echo "Info: No valid Traefik config file found, using default timeouts"
+        echo "Looked for valid configs in: ${BEE_CONFIG}/traefik-config.yaml and ./config/traefik-config.yaml"
+        # Don't exit with error when called from k8s-local, just use defaults
+        if [[ "${FUNCNAME[1]}" != "k8s-local" ]]; then
+            exit 1
+        fi
     fi
 }
 
@@ -338,7 +377,7 @@ for OPT in $OPTS; do
     fi
 done
 
-ACTIONS=(build check destroy geth install k8s-local uninstall start stop run prepare add-hosts del-hosts)
+ACTIONS=(build check destroy geth install k8s-local uninstall start stop run prepare add-hosts del-hosts configure-traefik)
 if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
     if [[ $ACTION == "run" ]]; then
         check
