@@ -370,18 +370,6 @@ del-hosts() {
     fi
 }
 
-# Parse --p2p-wss-enable flag
-for arg in "$@"; do
-    case $arg in
-        --p2p-wss-enable)
-            P2P_WSS_ENABLE=true
-            shift
-            ;;
-        *)
-            ;;
-    esac
-done
-
 ALLOW_OPTS=(skip-local skip-vet skip-push ci)
 for OPT in $OPTS; do
     if [[ " ${ALLOW_OPTS[*]} " == *"$OPT"* ]]; then
