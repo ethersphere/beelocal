@@ -113,8 +113,15 @@ config() {
         curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/k3d.yaml -o "${BEE_TEMP}"/k3d.yaml
         curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/geth-swap.yaml -o "${BEE_TEMP}"/geth-swap.yaml
         if [[ "${P2P_WSS_ENABLE}" == "true" ]]; then
-            curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/pebble-deployment.yaml -o "${BEE_TEMP}"/pebble-deployment.yaml || true
-            curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/p2p-forge-deployment.yaml -o "${BEE_TEMP}"/p2p-forge-deployment.yaml || true
+            # download, but if it fails or file is invalid, use local files in deploy-p2p-wss
+            if ! curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/pebble-deployment.yaml -o "${BEE_TEMP}"/pebble-deployment.yaml 2>/dev/null || \
+               ! grep -q "^apiVersion:" "${BEE_TEMP}"/pebble-deployment.yaml 2>/dev/null; then
+                rm -f "${BEE_TEMP}"/pebble-deployment.yaml
+            fi
+            if ! curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/p2p-forge-deployment.yaml -o "${BEE_TEMP}"/p2p-forge-deployment.yaml 2>/dev/null || \
+               ! grep -q "^apiVersion:" "${BEE_TEMP}"/p2p-forge-deployment.yaml 2>/dev/null; then
+                rm -f "${BEE_TEMP}"/p2p-forge-deployment.yaml
+            fi
         fi
         if [[ -n $CI ]]; then
             curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/hack/registries.yaml -o "${BEE_TEMP}"/registries.yaml
@@ -273,8 +280,8 @@ deploy-p2p-wss() {
     
     echo "deploying Pebble and p2p-forge for P2P-WSS support..."
     
-    # Apply Pebble deployment
-    if [[ -f "${BEE_CONFIG}"/pebble-deployment.yaml ]]; then
+    # Apply Pebble deployment - use remote file if it exists and is valid, otherwise use local
+    if [[ -f "${BEE_CONFIG}"/pebble-deployment.yaml ]] && grep -q "^apiVersion:" "${BEE_CONFIG}"/pebble-deployment.yaml 2>/dev/null; then
         kubectl apply -f "${BEE_CONFIG}"/pebble-deployment.yaml
     elif [[ -f config/pebble-deployment.yaml ]]; then
         kubectl apply -f config/pebble-deployment.yaml
@@ -287,8 +294,8 @@ deploy-p2p-wss() {
     echo "waiting for Pebble to be ready..."
     kubectl rollout status deployment/pebble -n "${NAMESPACE}" --timeout=120s || true
     
-    # Apply p2p-forge deployment
-    if [[ -f "${BEE_CONFIG}"/p2p-forge-deployment.yaml ]]; then
+    # Apply p2p-forge deployment - use remote file if it exists and is valid, otherwise use local
+    if [[ -f "${BEE_CONFIG}"/p2p-forge-deployment.yaml ]] && grep -q "^apiVersion:" "${BEE_CONFIG}"/p2p-forge-deployment.yaml 2>/dev/null; then
         kubectl apply -f "${BEE_CONFIG}"/p2p-forge-deployment.yaml
     elif [[ -f config/p2p-forge-deployment.yaml ]]; then
         kubectl apply -f config/p2p-forge-deployment.yaml
