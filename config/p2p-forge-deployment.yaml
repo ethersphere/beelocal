@@ -8,7 +8,10 @@ data:
     .:53 {
         errors
         log
-        acme https://pebble:14000/dir
+        acme localhost {
+            registration-domain registration.localhost listen-address=:8080 external-tls=false
+            database-type badger /data
+        }
     }
 ---
 apiVersion: apps/v1
@@ -44,11 +47,11 @@ spec:
         env:
         - name: ACME_SERVER
           value: "https://pebble:14000/dir"
-        - name: DNS_DOMAIN
-          value: "localhost"
         volumeMounts:
         - name: p2p-forge-config
           mountPath: /config
+        - name: p2p-forge-data
+          mountPath: /data
         resources:
           requests:
             cpu: 100m
@@ -60,6 +63,8 @@ spec:
       - name: p2p-forge-config
         configMap:
           name: p2p-forge-config
+      - name: p2p-forge-data
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
