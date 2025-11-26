@@ -9,7 +9,7 @@ data:
         errors
         log
         acme local.test {
-            registration-domain registration.local.test listen-address=:8080 external-tls=false
+            registration-domain registration.local.test listen-address=:8080 external-tls=true
             database-type badger /data
         }
     }
@@ -44,9 +44,6 @@ spec:
         - name: dns
           containerPort: 53
           protocol: UDP
-        env:
-        - name: ACME_SERVER
-          value: "https://pebble:14000/dir"
         volumeMounts:
         - name: p2p-forge-config
           mountPath: /config
