@@ -37,6 +37,7 @@ declare -x SETUP_CONTRACT_IMAGE=${SETUP_CONTRACT_IMAGE:-ethersphere/bee-localcha
 declare -x SETUP_CONTRACT_IMAGE_TAG=${SETUP_CONTRACT_IMAGE_TAG:-latest}
 declare -x NAMESPACE=${NAMESPACE:-local}
 declare -x BEEKEEPER_CLUSTER=${BEEKEEPER_CLUSTER:-local}
+declare -x P2P_WSS_ENABLE=${P2P_WSS_ENABLE:-false}
 
 check() {
     if ! grep -qE "docker|admin" <<< "$(id "$(whoami)")"; then
@@ -111,6 +112,10 @@ config() {
         trap 'rm -rf ${BEE_TEMP}' EXIT
         curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/k3d.yaml -o "${BEE_TEMP}"/k3d.yaml
         curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/geth-swap.yaml -o "${BEE_TEMP}"/geth-swap.yaml
+        if [[ "${P2P_WSS_ENABLE}" == "true" ]]; then
+            curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/pebble-deployment.yaml -o "${BEE_TEMP}"/pebble-deployment.yaml || true
+            curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/p2p-forge-deployment.yaml -o "${BEE_TEMP}"/p2p-forge-deployment.yaml || true
+        fi
         if [[ -n $CI ]]; then
             curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/hack/registries.yaml -o "${BEE_TEMP}"/registries.yaml
             sudo cp "${BEE_TEMP}"/registries.yaml /etc/rancher/k3s/registries.yaml
@@ -257,6 +262,48 @@ geth() {
     fi
 }
 
+deploy-p2p-wss() {
+    if [[ "${P2P_WSS_ENABLE}" != "true" ]]; then
+        return 0
+    fi
+    
+    if [[ -z $BEE_CONFIG ]]; then
+        config
+    fi
+    
+    echo "deploying Pebble and p2p-forge for P2P-WSS support..."
+    
+    # Apply Pebble deployment
+    if [[ -f "${BEE_CONFIG}"/pebble-deployment.yaml ]]; then
+        kubectl apply -f "${BEE_CONFIG}"/pebble-deployment.yaml
+    elif [[ -f config/pebble-deployment.yaml ]]; then
+        kubectl apply -f config/pebble-deployment.yaml
+    else
+        echo "pebble-deployment.yaml not found..."
+        return 1
+    fi
+    
+    # Wait for Pebble to be ready
+    echo "waiting for Pebble to be ready..."
+    kubectl rollout status deployment/pebble -n "${NAMESPACE}" --timeout=120s || true
+    
+    # Apply p2p-forge deployment
+    if [[ -f "${BEE_CONFIG}"/p2p-forge-deployment.yaml ]]; then
+        kubectl apply -f "${BEE_CONFIG}"/p2p-forge-deployment.yaml
+    elif [[ -f config/p2p-forge-deployment.yaml ]]; then
+        kubectl apply -f config/p2p-forge-deployment.yaml
+    else
+        echo "p2p-forge-deployment.yaml not found..."
+        return 1
+    fi
+    
+    # Wait for p2p-forge to be ready
+    echo "waiting for p2p-forge to be ready..."
+    kubectl rollout status deployment/p2p-forge -n "${NAMESPACE}" --timeout=120s || true
+    
+    echo "Pebble and p2p-forge deployed successfully..."
+}
+
 stop() {
     if [[ -n $CI ]]; then
         echo "action not supported for CI"
@@ -316,6 +363,18 @@ del-hosts() {
     fi
 }
 
+# Parse --p2p-wss-enable flag
+for arg in "$@"; do
+    case $arg in
+        --p2p-wss-enable)
+            P2P_WSS_ENABLE=true
+            shift
+            ;;
+        *)
+            ;;
+    esac
+done
+
 ALLOW_OPTS=(skip-local skip-vet skip-push ci)
 for OPT in $OPTS; do
     if [[ " ${ALLOW_OPTS[*]} " == *"$OPT"* ]]; then
@@ -348,6 +407,7 @@ if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
         elif ! k3d cluster list bee --no-headers &> /dev/null; then
             k8s-local
         fi
+        deploy-p2p-wss
         install
     elif [[ $ACTION == "prepare" ]]; then
         check
@@ -359,6 +419,7 @@ if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
         elif [[ -z $SKIP_LOCAL ]]; then
             build
         fi
+        deploy-p2p-wss
     else
         $ACTION
     fi
