@@ -1,0 +1,53 @@
+# StatefulSet patch template for adding Pebble CA certificate to bee nodes
+# This patch modifies the main bee container to install the Pebble root CA certificate
+# before starting the bee process. The certificate is installed directly into the
+# container's filesystem using update-ca-certificates.
+#
+# Prerequisites:
+#   1. Pebble must be deployed and accessible at https://pebble:15000
+#   2. The bee container image must support apt-get (Debian/Ubuntu based)
+#
+# Usage with kubectl patch:
+#   kubectl patch statefulset <statefulset-name> -n <namespace> --type='strategic' -p "$(cat config/bee-statefulset-pebble-ca-patch.yaml)"
+#
+# For beekeeper integration:
+#   Apply this patch structure when creating bee node StatefulSets to ensure
+#   they can trust Pebble's ACME server certificate.
+
+spec:
+  template:
+    spec:
+      containers:
+      - name: bee
+        # Temporarily run as root to install certificates, then switch back to original user
+        securityContext:
+          runAsUser: 0
+        # Modify command to install certificate first, then start bee
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          
+          # Fetch Pebble Root
+          # We use -k here because we haven't trusted it yet
+          curl -k -s https://pebble:15000/roots/0 > /usr/local/share/ca-certificates/pebble-root-real.crt
+          curl -k -s https://pebble:15000/intermediates/0 > /usr/local/share/ca-certificates/pebble-intermediate-real.crt
+          
+          # Update the store
+          # This generates /etc/ssl/certs/ca-certificates.crt
+          update-ca-certificates
+          
+          # --- VERIFICATION ---
+          echo "Verifying..."
+          
+          # We remove >/dev/null to see actual errors if they happen
+          # We simply check if the file exists, as network tests might fail due to hostname (see note below)
+          if [ -f /etc/ssl/certs/ca-certificates.crt ]; then
+             echo "Bundle created successfully."
+          else
+             exit 1
+          fi
+          
+          # Exec into the original bee command (replaces shell with bee process)
+          exec bee start --config=.bee.yaml

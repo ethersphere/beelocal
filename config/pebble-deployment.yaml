@@ -11,8 +11,8 @@ data:
         "managementListenAddress": "0.0.0.0:15000",
         "certificate": "/test/certs/localhost/cert.pem",
         "privateKey": "/test/certs/localhost/key.pem",
-        "httpPort": 80,
-        "tlsPort": 443,
+        "httpPort": 5002,
+        "tlsPort": 5001,
         "ocspResponderURL": "",
         "externalAccountBindingRequired": false
       }
@@ -43,10 +43,10 @@ spec:
           - "/config/pebble-config.json"
         ports:
         - name: http
-          containerPort: 80
+          containerPort: 5002
           protocol: TCP
         - name: https
-          containerPort: 443
+          containerPort: 5001
           protocol: TCP
         - name: acme
           containerPort: 14000
@@ -86,11 +86,11 @@ spec:
   ports:
   - name: http
     port: 80
-    targetPort: 80
+    targetPort: 5002
     protocol: TCP
   - name: https
     port: 443
-    targetPort: 443
+    targetPort: 5001
     protocol: TCP
   - name: acme
     port: 14000
@@ -102,4 +102,3 @@ spec:
     protocol: TCP
   selector:
     app: pebble
-
