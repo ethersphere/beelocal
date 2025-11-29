@@ -33,6 +33,7 @@ spec:
           # We use -k here because we haven't trusted it yet
           curl -k -s https://pebble:15000/roots/0 > /usr/local/share/ca-certificates/pebble-root-real.crt
           curl -k -s https://pebble:15000/intermediates/0 > /usr/local/share/ca-certificates/pebble-intermediate-real.crt
+          curl -k -s https://raw.githubusercontent.com/letsencrypt/pebble/refs/heads/main/test/certs/pebble.minica.pem > /usr/local/share/ca-certificates/pebble-minica.crt
           
           # Update the store
           # This generates /etc/ssl/certs/ca-certificates.crt
