@@ -27,27 +27,31 @@ spec:
         - /bin/bash
         - -c
         - |
-          set -e
+          set -ex
           
-          # Fetch Pebble Root
-          # We use -k here because we haven't trusted it yet
-          curl -k -s https://pebble:15000/roots/0 > /usr/local/share/ca-certificates/pebble-root-real.crt
-          curl -k -s https://pebble:15000/intermediates/0 > /usr/local/share/ca-certificates/pebble-intermediate-real.crt
-          curl -k -s https://raw.githubusercontent.com/letsencrypt/pebble/refs/heads/main/test/certs/pebble.minica.pem > /usr/local/share/ca-certificates/pebble-minica.crt
+          # Fetch all required Pebble certs
+          # We use -k because we haven't trusted the server yet. We use --fail to exit on HTTP error.
+          curl -k -s --fail https://pebble:15000/roots/0 > /usr/local/share/ca-certificates/pebble-root-real.crt
+          curl -k -s --fail https://pebble:15000/intermediates/0 > /usr/local/share/ca-certificates/pebble-intermediate-real.crt
+          curl -k -s --fail https://raw.githubusercontent.com/letsencrypt/pebble/refs/heads/main/test/certs/pebble.minica.pem > /usr/local/share/ca-certificates/pebble-minica.crt
           
-          # Update the store
-          # This generates /etc/ssl/certs/ca-certificates.crt
+          echo "--- Downloaded certs ---"
+          ls -l /usr/local/share/ca-certificates/
+          echo "--- End Downloaded certs ---"
+
+          # Update the system trust store
           update-ca-certificates
           
           # --- VERIFICATION ---
-          echo "Verifying..."
+          echo "Verifying connection to Pebble ACME server..."
           
-          # We remove >/dev/null to see actual errors if they happen
-          # We simply check if the file exists, as network tests might fail due to hostname (see note below)
-          if [ -f /etc/ssl/certs/ca-certificates.crt ]; then
-             echo "Bundle created successfully."
+          # Attempt to connect to the ACME endpoint securely. 
+          # If this fails, the CA was not installed correctly.
+          if curl --head --fail https://pebble:14000/dir; then
+              echo "Successfully connected to Pebble."
           else
-             exit 1
+              echo "Failed to connect to Pebble after updating CA certificates."
+              exit 1
           fi
           
           # Exec into the original bee command (replaces shell with bee process)

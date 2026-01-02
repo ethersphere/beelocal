@@ -8,10 +8,8 @@ data:
     .:53 {
         errors
         log
-        any
-        ipparser .
         acme local.test {
-            registration-domain registration.local.test listen-address=:8080 external-tls=true
+            registration-domain p2p-forge listen-address=:8080 external-tls=false
             database-type badger /data
         }
     }
