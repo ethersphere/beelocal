@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: pebble-config
-  namespace: local-dns
+  namespace: local
 data:
   pebble-config.json: |
     {
@@ -22,7 +22,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: pebble
-  namespace: local-dns
+  namespace: local
   labels:
     app: pebble
 spec:
@@ -78,7 +78,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: pebble
-  namespace: local-dns
+  namespace: local
   labels:
     app: pebble
 spec:
