@@ -9,7 +9,7 @@ data:
         errors
         log
         acme local.test {
-            registration-domain p2p-forge listen-address=:8080 external-tls=false
+            registration-domain p2p-forge.local.svc.cluster.local:8080 listen-address=:8080 external-tls=true
             database-type badger /data
         }
     }
