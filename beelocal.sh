@@ -128,6 +128,9 @@ config() {
             sudo cp "${BEE_TEMP}"/registries.yaml /etc/rancher/k3s/registries.yaml
         fi
         BEE_CONFIG="${BEE_TEMP}"
+    else
+        # Use local config files
+        BEE_CONFIG="config"
     fi
 }
 
@@ -317,10 +320,11 @@ deploy-p2p-wss() {
         echo "CoreDNS already configured for local.test, skipping..."
     else
         # Patch CoreDNS configmap to add local.test forwarding
+        P2P_FORGE_IP=$(kubectl get svc p2p-forge -n "${NAMESPACE}" -o jsonpath='{.spec.clusterIP}')
         LOCAL_TEST_BLOCK="local.test:53 {
     errors
     cache 30
-    forward . p2p-forge.${NAMESPACE}.svc.cluster.local:53
+    forward . ${P2P_FORGE_IP}:53
 }"
         # Get current Corefile, append local.test block, and apply
         CURRENT_COREFILE=$(kubectl get cm coredns -n kube-system -o jsonpath='{.data.Corefile}')
