@@ -309,6 +309,33 @@ deploy-p2p-wss() {
     echo "waiting for p2p-forge to be ready..."
     kubectl rollout status deployment/p2p-forge -n "${NAMESPACE}" --timeout=120s || true
     
+    # Configure CoreDNS to forward local.test queries to p2p-forge
+    echo "configuring CoreDNS to forward local.test to p2p-forge..."
+    
+    # Check if local.test forwarding is already configured
+    if kubectl get cm coredns -n kube-system -o jsonpath='{.data.Corefile}' | grep -q "local.test"; then
+        echo "CoreDNS already configured for local.test, skipping..."
+    else
+        # Patch CoreDNS configmap to add local.test forwarding
+        LOCAL_TEST_BLOCK="local.test:53 {
+    errors
+    cache 30
+    forward . p2p-forge.${NAMESPACE}.svc.cluster.local:53
+}"
+        # Get current Corefile, append local.test block, and apply
+        CURRENT_COREFILE=$(kubectl get cm coredns -n kube-system -o jsonpath='{.data.Corefile}')
+        NEW_COREFILE="${CURRENT_COREFILE}
+${LOCAL_TEST_BLOCK}"
+        
+        kubectl create configmap coredns -n kube-system \
+            --from-literal=Corefile="${NEW_COREFILE}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+        
+        kubectl rollout restart deployment coredns -n kube-system
+        kubectl rollout status deployment/coredns -n kube-system --timeout=60s || true
+        echo "CoreDNS configured for local.test forwarding..."
+    fi
+    
     echo "Pebble and p2p-forge deployed successfully..."
 }
 
