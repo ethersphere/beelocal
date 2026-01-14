@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: p2p-forge-config
-  namespace: local
+  namespace: local-dns
 data:
   Corefile: |
     .:53 {
@@ -18,7 +18,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: p2p-forge
-  namespace: local
+  namespace: local-dns
   labels:
     app: p2p-forge
 spec:
@@ -67,7 +67,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: p2p-forge
-  namespace: local
+  namespace: local-dns
   labels:
     app: p2p-forge
 spec:
