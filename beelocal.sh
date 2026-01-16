@@ -251,7 +251,6 @@ install() {
         build
     fi
     beekeeper create bee-cluster --cluster-name "${BEEKEEPER_CLUSTER}"
-    apply-pebble-ca-patch
 }
 
 uninstall() {
@@ -341,60 +340,6 @@ ${LOCAL_TEST_BLOCK}"
     fi
     
     echo "Pebble and p2p-forge deployed successfully..."
-}
-
-apply-pebble-ca-patch() {
-    if [[ "${P2P_WSS_ENABLE}" != "true" ]]; then
-        return 0
-    fi
-    
-    echo "applying Pebble CA certificate patch to bee nodes..."
-    
-    # Wait for statefulsets to be created (with retry logic)
-    local max_attempts=30
-    local attempt=0
-    local statefulsets_found=false
-    
-    while [[ $attempt -lt $max_attempts ]]; do
-        # Find all bee statefulsets in the namespace
-        local statefulsets=$(kubectl get statefulset -n "${NAMESPACE}" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null | grep -E '^bee-[0-9]+$' || true)
-        
-        if [[ -n "$statefulsets" ]]; then
-            statefulsets_found=true
-            break
-        fi
-        
-        attempt=$((attempt + 1))
-        echo "waiting for bee statefulsets to be created... (attempt $attempt/$max_attempts)"
-        sleep 2
-    done
-    
-    if [[ "$statefulsets_found" != "true" ]]; then
-        echo "warning: no bee statefulsets found after $max_attempts attempts, skipping patch"
-        return 0
-    fi
-    
-    # Apply patch to each statefulset
-    local patch_file=""
-    if [[ -f config/bee-statefulset-pebble-ca-patch.yaml ]]; then
-        patch_file="config/bee-statefulset-pebble-ca-patch.yaml"
-    elif [[ -f "${BEE_CONFIG}"/bee-statefulset-pebble-ca-patch.yaml ]]; then
-        patch_file="${BEE_CONFIG}/bee-statefulset-pebble-ca-patch.yaml"
-    else
-        echo "warning: bee-statefulset-pebble-ca-patch.yaml not found, skipping patch"
-        return 0
-    fi
-    
-    for statefulset in $statefulsets; do
-        echo "applying Pebble CA patch to $statefulset..."
-        if kubectl patch statefulset "$statefulset" -n "${NAMESPACE}" --type='strategic' -p "$(cat "$patch_file")" 2>/dev/null; then
-            echo "successfully patched $statefulset"
-        else
-            echo "warning: failed to patch $statefulset (may already be patched)"
-        fi
-    done
-    
-    echo "Pebble CA patch application completed..."
 }
 
 stop() {
@@ -501,7 +446,6 @@ if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
             build
         fi
         deploy-p2p-wss
-        apply-pebble-ca-patch
     else
         $ACTION
     fi
