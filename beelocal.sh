@@ -357,7 +357,7 @@ apply-pebble-ca-patch() {
     
     while [[ $attempt -lt $max_attempts ]]; do
         # Find all bee statefulsets in the namespace
-        local statefulsets=$(kubectl get statefulset -n "${NAMESPACE}" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null | grep -E '^(bee-[0-9]+|bootnode-[0-9]+|light-[0-9]+)$' || true)
+        local statefulsets=$(kubectl get statefulset -n "${NAMESPACE}" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null | grep -E '^(bee-[0-9]+)$' || true)
         
         if [[ -n "$statefulsets" ]]; then
             statefulsets_found=true
