@@ -251,7 +251,6 @@ install() {
         build
     fi
     beekeeper create bee-cluster --cluster-name "${BEEKEEPER_CLUSTER}"
-    apply-pebble-ca-patch
 }
 
 uninstall() {
@@ -501,7 +500,6 @@ if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
             build
         fi
         deploy-p2p-wss
-        apply-pebble-ca-patch
     else
         $ACTION
     fi
