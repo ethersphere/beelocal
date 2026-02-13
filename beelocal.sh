@@ -123,6 +123,9 @@ k8s-local() {
     config
     if [[ -n $CI ]]; then
         echo "starting k3s cluster..."
+        # Fix for Docker 29+: disable containerd snapshotter so insecure-registries works
+        echo '{"insecure-registries":["k3d-registry.localhost:5000"],"features":{"containerd-snapshotter":false}}' | sudo tee /etc/docker/daemon.json
+        sudo systemctl restart docker
         if [[ -f  "${K3S_FOLDER}"/k3s-airgap-registry-container-amd64.tar ]]; then
             docker import --change 'ENTRYPOINT ["/entrypoint.sh"]' --change 'CMD ["/etc/docker/registry/config.yml"]' "${K3S_FOLDER}"/k3s-airgap-registry-container-amd64.tar registry:2
         elif [[ -f  "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar ]]; then
