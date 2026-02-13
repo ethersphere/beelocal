@@ -1,0 +1,104 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pebble-config
+  namespace: local
+data:
+  pebble-config.json: |
+    {
+      "pebble": {
+        "listenAddress": "0.0.0.0:14000",
+        "managementListenAddress": "0.0.0.0:15000",
+        "certificate": "/test/certs/localhost/cert.pem",
+        "privateKey": "/test/certs/localhost/key.pem",
+        "httpPort": 5002,
+        "tlsPort": 5001,
+        "ocspResponderURL": "",
+        "externalAccountBindingRequired": false
+      }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pebble
+  namespace: local
+  labels:
+    app: pebble
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pebble
+  template:
+    metadata:
+      labels:
+        app: pebble
+    spec:
+      containers:
+      - name: pebble
+        image: ghcr.io/letsencrypt/pebble:latest
+        args:
+          - "-config"
+          - "/config/pebble-config.json"
+        ports:
+        - name: http
+          containerPort: 5002
+          protocol: TCP
+        - name: https
+          containerPort: 5001
+          protocol: TCP
+        - name: acme
+          containerPort: 14000
+          protocol: TCP
+        - name: management
+          containerPort: 15000
+          protocol: TCP
+        env:
+        - name: PEBBLE_VA_ALWAYS_VALID
+          value: "1"
+        - name: PEBBLE_WFE_NONCEREJECT
+          value: "0"
+        volumeMounts:
+        - name: pebble-config
+          mountPath: /config
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      volumes:
+      - name: pebble-config
+        configMap:
+          name: pebble-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pebble
+  namespace: local
+  labels:
+    app: pebble
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 80
+    targetPort: 5002
+    protocol: TCP
+  - name: https
+    port: 443
+    targetPort: 5001
+    protocol: TCP
+  - name: acme
+    port: 14000
+    targetPort: 14000
+    protocol: TCP
+  - name: management
+    port: 15000
+    targetPort: 15000
+    protocol: TCP
+  selector:
+    app: pebble

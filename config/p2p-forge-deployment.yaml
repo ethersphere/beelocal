@@ -1,0 +1,86 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: p2p-forge-config
+  namespace: local
+data:
+  Corefile: |
+    .:53 {
+        errors
+        log
+        acme local.test {
+            registration-domain p2p-forge.local.svc.cluster.local:8080 listen-address=:8080 external-tls=true
+            database-type badger /data
+        }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: p2p-forge
+  namespace: local
+  labels:
+    app: p2p-forge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: p2p-forge
+  template:
+    metadata:
+      labels:
+        app: p2p-forge
+    spec:
+      containers:
+      - name: p2p-forge
+        image: ghcr.io/ipshipyard/p2p-forge:latest
+        args:
+          - "-conf"
+          - "/config/Corefile"
+        ports:
+        - name: api
+          containerPort: 8080
+          protocol: TCP
+        - name: dns
+          containerPort: 53
+          protocol: UDP
+        volumeMounts:
+        - name: p2p-forge-config
+          mountPath: /config
+        - name: p2p-forge-data
+          mountPath: /data
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      volumes:
+      - name: p2p-forge-config
+        configMap:
+          name: p2p-forge-config
+      - name: p2p-forge-data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: p2p-forge
+  namespace: local
+  labels:
+    app: p2p-forge
+spec:
+  type: ClusterIP
+  ports:
+  - name: api
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  - name: dns
+    port: 53
+    targetPort: 53
+    protocol: UDP
+  selector:
+    app: p2p-forge
+
