@@ -286,9 +286,10 @@ deploy-p2p-wss() {
         config
     fi
     
-    echo "deploying Pebble and p2p-forge for P2P-WSS support..."
-    
+    echo "deploying P2P-WSS support..."
+
     # Apply Pebble deployment - use remote file if it exists and is valid, otherwise use local
+    echo "deploying Pebble (ghcr.io/letsencrypt/pebble:${PEBBLE_IMAGE_TAG})..."
     if [[ -f "${BEE_CONFIG}"/pebble-deployment.yaml ]] && grep -q "^apiVersion:" "${BEE_CONFIG}"/pebble-deployment.yaml 2>/dev/null; then
         envsubst '${PEBBLE_IMAGE_TAG}' < "${BEE_CONFIG}"/pebble-deployment.yaml | kubectl apply -f -
     elif [[ -f config/pebble-deployment.yaml ]]; then
@@ -303,6 +304,7 @@ deploy-p2p-wss() {
     kubectl rollout status deployment/pebble -n "${NAMESPACE}" --timeout=120s || true
     
     # Apply p2p-forge deployment - use remote file if it exists and is valid, otherwise use local
+    echo "deploying p2p-forge (ghcr.io/ipshipyard/p2p-forge:${P2P_FORGE_IMAGE_TAG})..."
     if [[ -f "${BEE_CONFIG}"/p2p-forge-deployment.yaml ]] && grep -q "^apiVersion:" "${BEE_CONFIG}"/p2p-forge-deployment.yaml 2>/dev/null; then
         envsubst '${P2P_FORGE_IMAGE_TAG}' < "${BEE_CONFIG}"/p2p-forge-deployment.yaml | kubectl apply -f -
     elif [[ -f config/p2p-forge-deployment.yaml ]]; then
