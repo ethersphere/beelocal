@@ -38,6 +38,7 @@ declare -x SETUP_CONTRACT_IMAGE_TAG=${SETUP_CONTRACT_IMAGE_TAG:-latest}
 declare -x NAMESPACE=${NAMESPACE:-local}
 declare -x BEEKEEPER_CLUSTER=${BEEKEEPER_CLUSTER:-local}
 declare -x P2P_WSS_ENABLE=${P2P_WSS_ENABLE:-false}
+declare -x PEBBLE_IMAGE_TAG=${PEBBLE_IMAGE_TAG:-v2.4.0}
 
 check() {
     if ! grep -qE "docker|admin" <<< "$(id "$(whoami)")"; then
@@ -285,9 +286,9 @@ deploy-p2p-wss() {
     
     # Apply Pebble deployment - use remote file if it exists and is valid, otherwise use local
     if [[ -f "${BEE_CONFIG}"/pebble-deployment.yaml ]] && grep -q "^apiVersion:" "${BEE_CONFIG}"/pebble-deployment.yaml 2>/dev/null; then
-        kubectl apply -f "${BEE_CONFIG}"/pebble-deployment.yaml
+        envsubst '${PEBBLE_IMAGE_TAG}' < "${BEE_CONFIG}"/pebble-deployment.yaml | kubectl apply -f -
     elif [[ -f config/pebble-deployment.yaml ]]; then
-        kubectl apply -f config/pebble-deployment.yaml
+        envsubst '${PEBBLE_IMAGE_TAG}' < config/pebble-deployment.yaml | kubectl apply -f -
     else
         echo "pebble-deployment.yaml not found..."
         return 1
