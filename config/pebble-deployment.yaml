@@ -38,7 +38,7 @@ spec:
     spec:
       containers:
       - name: pebble
-        image: ghcr.io/letsencrypt/pebble:latest
+        image: ghcr.io/letsencrypt/pebble:${PEBBLE_IMAGE_TAG}
         args:
           - "-config"
           - "/config/pebble-config.json"

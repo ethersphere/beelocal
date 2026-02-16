@@ -38,6 +38,8 @@ declare -x SETUP_CONTRACT_IMAGE_TAG=${SETUP_CONTRACT_IMAGE_TAG:-latest}
 declare -x NAMESPACE=${NAMESPACE:-local}
 declare -x BEEKEEPER_CLUSTER=${BEEKEEPER_CLUSTER:-local}
 declare -x P2P_WSS_ENABLE=${P2P_WSS_ENABLE:-false}
+declare -x PEBBLE_IMAGE_TAG=${PEBBLE_IMAGE_TAG:-v2.9.0}
+declare -x P2P_FORGE_IMAGE_TAG=${P2P_FORGE_IMAGE_TAG:-v0.7.0}
 
 check() {
     if ! grep -qE "docker|admin" <<< "$(id "$(whoami)")"; then
@@ -138,6 +140,9 @@ k8s-local() {
     config
     if [[ -n $CI ]]; then
         echo "starting k3s cluster..."
+        # Fix for Docker 29+: disable containerd snapshotter so insecure-registries works
+        echo '{"insecure-registries":["k3d-registry.localhost:5000"],"features":{"containerd-snapshotter":false}}' | sudo tee /etc/docker/daemon.json
+        sudo systemctl restart docker
         if [[ -f  "${K3S_FOLDER}"/k3s-airgap-registry-container-amd64.tar ]]; then
             docker import --change 'ENTRYPOINT ["/entrypoint.sh"]' --change 'CMD ["/etc/docker/registry/config.yml"]' "${K3S_FOLDER}"/k3s-airgap-registry-container-amd64.tar registry:2
         elif [[ -f  "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar ]]; then
@@ -285,9 +290,9 @@ deploy-p2p-wss() {
     
     # Apply Pebble deployment - use remote file if it exists and is valid, otherwise use local
     if [[ -f "${BEE_CONFIG}"/pebble-deployment.yaml ]] && grep -q "^apiVersion:" "${BEE_CONFIG}"/pebble-deployment.yaml 2>/dev/null; then
-        kubectl apply -f "${BEE_CONFIG}"/pebble-deployment.yaml
+        envsubst '${PEBBLE_IMAGE_TAG}' < "${BEE_CONFIG}"/pebble-deployment.yaml | kubectl apply -f -
     elif [[ -f config/pebble-deployment.yaml ]]; then
-        kubectl apply -f config/pebble-deployment.yaml
+        envsubst '${PEBBLE_IMAGE_TAG}' < config/pebble-deployment.yaml | kubectl apply -f -
     else
         echo "pebble-deployment.yaml not found..."
         return 1
@@ -299,9 +304,9 @@ deploy-p2p-wss() {
     
     # Apply p2p-forge deployment - use remote file if it exists and is valid, otherwise use local
     if [[ -f "${BEE_CONFIG}"/p2p-forge-deployment.yaml ]] && grep -q "^apiVersion:" "${BEE_CONFIG}"/p2p-forge-deployment.yaml 2>/dev/null; then
-        kubectl apply -f "${BEE_CONFIG}"/p2p-forge-deployment.yaml
+        envsubst '${P2P_FORGE_IMAGE_TAG}' < "${BEE_CONFIG}"/p2p-forge-deployment.yaml | kubectl apply -f -
     elif [[ -f config/p2p-forge-deployment.yaml ]]; then
-        kubectl apply -f config/p2p-forge-deployment.yaml
+        envsubst '${P2P_FORGE_IMAGE_TAG}' < config/p2p-forge-deployment.yaml | kubectl apply -f -
     else
         echo "p2p-forge-deployment.yaml not found..."
         return 1
