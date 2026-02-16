@@ -39,6 +39,7 @@ declare -x NAMESPACE=${NAMESPACE:-local}
 declare -x BEEKEEPER_CLUSTER=${BEEKEEPER_CLUSTER:-local}
 declare -x P2P_WSS_ENABLE=${P2P_WSS_ENABLE:-false}
 declare -x PEBBLE_IMAGE_TAG=${PEBBLE_IMAGE_TAG:-v2.4.0}
+declare -x P2P_FORGE_IMAGE_TAG=${P2P_FORGE_IMAGE_TAG:-v0.7.0}
 
 check() {
     if ! grep -qE "docker|admin" <<< "$(id "$(whoami)")"; then
@@ -300,9 +301,9 @@ deploy-p2p-wss() {
     
     # Apply p2p-forge deployment - use remote file if it exists and is valid, otherwise use local
     if [[ -f "${BEE_CONFIG}"/p2p-forge-deployment.yaml ]] && grep -q "^apiVersion:" "${BEE_CONFIG}"/p2p-forge-deployment.yaml 2>/dev/null; then
-        kubectl apply -f "${BEE_CONFIG}"/p2p-forge-deployment.yaml
+        envsubst '${P2P_FORGE_IMAGE_TAG}' < "${BEE_CONFIG}"/p2p-forge-deployment.yaml | kubectl apply -f -
     elif [[ -f config/p2p-forge-deployment.yaml ]]; then
-        kubectl apply -f config/p2p-forge-deployment.yaml
+        envsubst '${P2P_FORGE_IMAGE_TAG}' < config/p2p-forge-deployment.yaml | kubectl apply -f -
     else
         echo "p2p-forge-deployment.yaml not found..."
         return 1

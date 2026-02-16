@@ -33,7 +33,7 @@ spec:
     spec:
       containers:
       - name: p2p-forge
-        image: ghcr.io/ipshipyard/p2p-forge:latest
+        image: ghcr.io/ipshipyard/p2p-forge:${P2P_FORGE_IMAGE_TAG}
         args:
           - "-conf"
           - "/config/Corefile"
