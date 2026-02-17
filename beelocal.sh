@@ -301,7 +301,7 @@ deploy-p2p-wss() {
     
     # Wait for Pebble to be ready
     echo "waiting for Pebble to be ready..."
-    kubectl rollout status deployment/pebble -n "${NAMESPACE}" --timeout=120s || true
+    kubectl rollout status deployment/pebble -n "${NAMESPACE}" --timeout=240s
     
     # Apply p2p-forge deployment - use remote file if it exists and is valid, otherwise use local
     echo "deploying p2p-forge (ghcr.io/ipshipyard/p2p-forge:${P2P_FORGE_IMAGE_TAG})..."
