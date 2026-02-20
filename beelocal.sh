@@ -40,6 +40,7 @@ declare -x BEEKEEPER_CLUSTER=${BEEKEEPER_CLUSTER:-local}
 declare -x P2P_WSS_ENABLE=${P2P_WSS_ENABLE:-false}
 declare -x PEBBLE_IMAGE_TAG=${PEBBLE_IMAGE_TAG:-2.9.0}
 declare -x P2P_FORGE_IMAGE_TAG=${P2P_FORGE_IMAGE_TAG:-v0.7.0}
+declare -x PEBBLE_CERTIFICATE_VALIDITY_PERIOD=${PEBBLE_CERTIFICATE_VALIDITY_PERIOD:-300}
 
 check() {
     if ! grep -qE "docker|admin" <<< "$(id "$(whoami)")"; then
@@ -291,7 +292,7 @@ deploy-p2p-wss() {
     # Apply Pebble deployment - use remote file if it exists and is valid, otherwise use local
     echo "deploying Pebble (ghcr.io/letsencrypt/pebble:${PEBBLE_IMAGE_TAG})..."
     if [[ -f "${BEE_CONFIG}"/pebble-deployment.yaml ]] && grep -q "^apiVersion:" "${BEE_CONFIG}"/pebble-deployment.yaml 2>/dev/null; then
-        envsubst '${PEBBLE_IMAGE_TAG}' < "${BEE_CONFIG}"/pebble-deployment.yaml | kubectl apply -f -
+        envsubst '${PEBBLE_IMAGE_TAG},${PEBBLE_CERTIFICATE_VALIDITY_PERIOD}' < "${BEE_CONFIG}"/pebble-deployment.yaml | kubectl apply -f -
     elif [[ -f config/pebble-deployment.yaml ]]; then
         envsubst '${PEBBLE_IMAGE_TAG}' < config/pebble-deployment.yaml | kubectl apply -f -
     else
