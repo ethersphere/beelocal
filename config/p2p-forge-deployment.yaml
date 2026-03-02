@@ -83,4 +83,21 @@ spec:
     protocol: UDP
   selector:
     app: p2p-forge
-
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: p2p-forge-dns
+  namespace: local
+  labels:
+    app: p2p-forge
+spec:
+  type: NodePort
+  ports:
+  - name: dns
+    port: 53
+    targetPort: 53
+    nodePort: 30533
+    protocol: UDP
+  selector:
+    app: p2p-forge

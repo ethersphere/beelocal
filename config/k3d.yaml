@@ -9,6 +9,9 @@ ports:
   - port: 80:80
     nodeFilters:
       - loadbalancer
+  - port: 30533:30533/udp
+    nodeFilters:
+      - server:0
 registries:
   create:
     proxy:
