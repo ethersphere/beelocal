@@ -83,7 +83,7 @@ metadata:
   labels:
     app: pebble
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
   - name: http
     port: 80
@@ -101,5 +101,6 @@ spec:
     port: 15000
     targetPort: 15000
     protocol: TCP
+    nodePort: 31500
   selector:
     app: pebble

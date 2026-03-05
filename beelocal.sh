@@ -38,6 +38,7 @@ declare -x SETUP_CONTRACT_IMAGE_TAG=${SETUP_CONTRACT_IMAGE_TAG:-latest}
 declare -x NAMESPACE=${NAMESPACE:-local}
 declare -x BEEKEEPER_CLUSTER=${BEEKEEPER_CLUSTER:-local}
 declare -x P2P_WSS_ENABLE=${P2P_WSS_ENABLE:-false}
+declare -x BEE_AUTOTLS_FIRST_NODE_INSTANCE=${BEE_AUTOTLS_FIRST_NODE_INSTANCE:-bee-autotls-0}
 declare -x PEBBLE_IMAGE_TAG=${PEBBLE_IMAGE_TAG:-2.9.0}
 declare -x P2P_FORGE_IMAGE_TAG=${P2P_FORGE_IMAGE_TAG:-v0.7.0}
 declare -x PEBBLE_CERTIFICATE_VALIDITY_PERIOD=${PEBBLE_CERTIFICATE_VALIDITY_PERIOD:-300}
@@ -350,6 +351,25 @@ ${LOCAL_TEST_BLOCK}"
     echo "Pebble and p2p-forge deployed successfully..."
 }
 
+deploy-bee-autotls-wss-expose() {
+    if [[ "${P2P_WSS_ENABLE}" != "true" ]]; then
+        return 0
+    fi
+    echo "exposing bee-autotls-0 WSS for TLS verification from host..."
+    if [[ -z $BEE_CONFIG ]]; then
+        config
+    fi
+    if [[ -f "${BEE_CONFIG}"/bee-autotls-wss-expose.yaml ]] && grep -q "^apiVersion:" "${BEE_CONFIG}"/bee-autotls-wss-expose.yaml 2>/dev/null; then
+        envsubst '${NAMESPACE},${BEE_AUTOTLS_FIRST_NODE_INSTANCE}' < "${BEE_CONFIG}"/bee-autotls-wss-expose.yaml | kubectl apply -f -
+    elif [[ -f config/bee-autotls-wss-expose.yaml ]]; then
+        envsubst '${NAMESPACE},${BEE_AUTOTLS_FIRST_NODE_INSTANCE}' < config/bee-autotls-wss-expose.yaml | kubectl apply -f -
+    else
+        echo "bee-autotls-wss-expose.yaml not found, skipping..."
+        return 0
+    fi
+    echo "bee-autotls-0 WSS exposed on NodePort 31635..."
+}
+
 stop() {
     if [[ -n $CI ]]; then
         echo "action not supported for CI"
@@ -431,7 +451,7 @@ for OPT in $OPTS; do
     fi
 done
 
-ACTIONS=(build check destroy geth install k8s-local uninstall start stop run prepare add-hosts del-hosts)
+ACTIONS=(build check destroy geth install k8s-local uninstall start stop run prepare add-hosts del-hosts deploy-p2p-wss deploy-bee-autotls-wss-expose)
 if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
     if [[ $ACTION == "run" ]]; then
         check
@@ -443,6 +463,7 @@ if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
         fi
         deploy-p2p-wss
         install
+        deploy-bee-autotls-wss-expose
     elif [[ $ACTION == "prepare" ]]; then
         check
         add-hosts
@@ -454,6 +475,7 @@ if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
             build
         fi
         deploy-p2p-wss
+        deploy-bee-autotls-wss-expose
     else
         $ACTION
     fi

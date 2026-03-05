@@ -12,6 +12,12 @@ ports:
   - port: 30533:30533/udp
     nodeFilters:
       - server:0
+  - port: 31635:31635
+    nodeFilters:
+      - server:0
+  - port: 31500:31500
+    nodeFilters:
+      - server:0
 registries:
   create:
     proxy:
