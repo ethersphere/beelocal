@@ -15,7 +15,12 @@ data:
         "tlsPort": 5001,
         "ocspResponderURL": "",
         "externalAccountBindingRequired": false,
-        "certificateValidityPeriod": ${PEBBLE_CERTIFICATE_VALIDITY_PERIOD}
+        "profiles": {
+          "default": {
+            "description": "Default profile",
+            "validityPeriod": ${PEBBLE_CERTIFICATE_VALIDITY_PERIOD}
+          }
+        }
       }
     }
 ---

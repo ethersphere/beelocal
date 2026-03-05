@@ -295,7 +295,7 @@ deploy-p2p-wss() {
     if [[ -f "${BEE_CONFIG}"/pebble-deployment.yaml ]] && grep -q "^apiVersion:" "${BEE_CONFIG}"/pebble-deployment.yaml 2>/dev/null; then
         envsubst '${PEBBLE_IMAGE_TAG},${PEBBLE_CERTIFICATE_VALIDITY_PERIOD}' < "${BEE_CONFIG}"/pebble-deployment.yaml | kubectl apply -f -
     elif [[ -f config/pebble-deployment.yaml ]]; then
-        envsubst '${PEBBLE_IMAGE_TAG}' < config/pebble-deployment.yaml | kubectl apply -f -
+        envsubst '${PEBBLE_IMAGE_TAG},${PEBBLE_CERTIFICATE_VALIDITY_PERIOD}' < config/pebble-deployment.yaml | kubectl apply -f -
     else
         echo "pebble-deployment.yaml not found..."
         return 1
