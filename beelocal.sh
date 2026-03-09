@@ -127,6 +127,10 @@ config() {
                ! grep -q "^apiVersion:" "${BEE_TEMP}"/p2p-forge-deployment.yaml 2>/dev/null; then
                 rm -f "${BEE_TEMP}"/p2p-forge-deployment.yaml
             fi
+            if ! curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/bee-autotls-wss-expose.yaml -o "${BEE_TEMP}"/bee-autotls-wss-expose.yaml 2>/dev/null || \
+               ! grep -q "^apiVersion:" "${BEE_TEMP}"/bee-autotls-wss-expose.yaml 2>/dev/null; then
+                rm -f "${BEE_TEMP}"/bee-autotls-wss-expose.yaml
+            fi
         fi
         if [[ -n $CI ]]; then
             curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/hack/registries.yaml -o "${BEE_TEMP}"/registries.yaml
