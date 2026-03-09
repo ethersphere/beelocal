@@ -41,7 +41,8 @@ declare -x P2P_WSS_ENABLE=${P2P_WSS_ENABLE:-false}
 declare -x BEE_AUTOTLS_FIRST_NODE_INSTANCE=${BEE_AUTOTLS_FIRST_NODE_INSTANCE:-bee-autotls-0}
 declare -x PEBBLE_IMAGE_TAG=${PEBBLE_IMAGE_TAG:-2.9.0}
 declare -x P2P_FORGE_IMAGE_TAG=${P2P_FORGE_IMAGE_TAG:-v0.7.0}
-declare -x PEBBLE_CERTIFICATE_VALIDITY_PERIOD=${PEBBLE_CERTIFICATE_VALIDITY_PERIOD:-300}
+# 10 min validity for ci-autotls renewal test
+declare -x PEBBLE_CERTIFICATE_VALIDITY_PERIOD=${PEBBLE_CERTIFICATE_VALIDITY_PERIOD:-600}
 
 check() {
     if ! grep -qE "docker|admin" <<< "$(id "$(whoami)")"; then
