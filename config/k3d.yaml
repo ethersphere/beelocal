@@ -9,9 +9,6 @@ ports:
   - port: 80:80
     nodeFilters:
       - loadbalancer
-  - port: 30533:30533/udp
-    nodeFilters:
-      - server:0
   - port: 30053:30053/udp
     nodeFilters:
       - server:0
