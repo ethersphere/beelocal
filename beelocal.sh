@@ -298,9 +298,9 @@ deploy-p2p-wss() {
     # Apply Pebble deployment - use remote file if it exists and is valid, otherwise use local
     echo "deploying Pebble (ghcr.io/letsencrypt/pebble:${PEBBLE_IMAGE_TAG})..."
     if [[ -f "${BEE_CONFIG}"/pebble-deployment.yaml ]] && grep -q "^apiVersion:" "${BEE_CONFIG}"/pebble-deployment.yaml 2>/dev/null; then
-        envsubst '${PEBBLE_IMAGE_TAG},${PEBBLE_CERTIFICATE_VALIDITY_PERIOD}' < "${BEE_CONFIG}"/pebble-deployment.yaml | kubectl apply -f -
+        envsubst '${NAMESPACE},${PEBBLE_IMAGE_TAG},${PEBBLE_CERTIFICATE_VALIDITY_PERIOD}' < "${BEE_CONFIG}"/pebble-deployment.yaml | kubectl apply -f -
     elif [[ -f config/pebble-deployment.yaml ]]; then
-        envsubst '${PEBBLE_IMAGE_TAG},${PEBBLE_CERTIFICATE_VALIDITY_PERIOD}' < config/pebble-deployment.yaml | kubectl apply -f -
+        envsubst '${NAMESPACE},${PEBBLE_IMAGE_TAG},${PEBBLE_CERTIFICATE_VALIDITY_PERIOD}' < config/pebble-deployment.yaml | kubectl apply -f -
     else
         echo "pebble-deployment.yaml not found..."
         return 1
@@ -313,9 +313,9 @@ deploy-p2p-wss() {
     # Apply p2p-forge deployment - use remote file if it exists and is valid, otherwise use local
     echo "deploying p2p-forge (ghcr.io/ipshipyard/p2p-forge:${P2P_FORGE_IMAGE_TAG})..."
     if [[ -f "${BEE_CONFIG}"/p2p-forge-deployment.yaml ]] && grep -q "^apiVersion:" "${BEE_CONFIG}"/p2p-forge-deployment.yaml 2>/dev/null; then
-        envsubst '${P2P_FORGE_IMAGE_TAG}' < "${BEE_CONFIG}"/p2p-forge-deployment.yaml | kubectl apply -f -
+        envsubst '${NAMESPACE},${P2P_FORGE_IMAGE_TAG}' < "${BEE_CONFIG}"/p2p-forge-deployment.yaml | kubectl apply -f -
     elif [[ -f config/p2p-forge-deployment.yaml ]]; then
-        envsubst '${P2P_FORGE_IMAGE_TAG}' < config/p2p-forge-deployment.yaml | kubectl apply -f -
+        envsubst '${NAMESPACE},${P2P_FORGE_IMAGE_TAG}' < config/p2p-forge-deployment.yaml | kubectl apply -f -
     else
         echo "p2p-forge-deployment.yaml not found..."
         return 1
