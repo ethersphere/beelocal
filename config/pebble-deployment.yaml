@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: pebble-config
-  namespace: local
+  namespace: ${NAMESPACE}
 data:
   pebble-config.json: |
     {
@@ -15,7 +15,12 @@ data:
         "tlsPort": 5001,
         "ocspResponderURL": "",
         "externalAccountBindingRequired": false,
-        "certificateValidityPeriod": ${PEBBLE_CERTIFICATE_VALIDITY_PERIOD}
+        "profiles": {
+          "default": {
+            "description": "Default profile",
+            "validityPeriod": ${PEBBLE_CERTIFICATE_VALIDITY_PERIOD}
+          }
+        }
       }
     }
 ---
@@ -23,7 +28,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: pebble
-  namespace: local
+  namespace: ${NAMESPACE}
   labels:
     app: pebble
 spec:
@@ -79,11 +84,11 @@ apiVersion: v1
 kind: Service
 metadata:
   name: pebble
-  namespace: local
+  namespace: ${NAMESPACE}
   labels:
     app: pebble
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
   - name: http
     port: 80
@@ -101,5 +106,6 @@ spec:
     port: 15000
     targetPort: 15000
     protocol: TCP
+    nodePort: 31500
   selector:
     app: pebble

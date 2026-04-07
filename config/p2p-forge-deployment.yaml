@@ -2,23 +2,36 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: p2p-forge-config
-  namespace: local
+  namespace: ${NAMESPACE}
 data:
   Corefile: |
-    .:53 {
+    local.test:53 {
         errors
         log
+        ipparser local.test
         acme local.test {
-            registration-domain p2p-forge.local.svc.cluster.local:8080 listen-address=:8080 external-tls=true
+            registration-domain p2p-forge.${NAMESPACE}.svc.cluster.local:8080 listen-address=:8080 external-tls=true
             database-type badger /data
         }
     }
+  local.test: |
+    $TTL 300
+    $ORIGIN local.test.
+    @ 86400 IN SOA ns.local.test. admin.local.test. (
+        2025010101 ; serial
+        86400      ; refresh
+        2400       ; retry
+        604800     ; expire
+        86400      ; minimum
+    )
+    local.test. 86400 IN NS ns.local.test.
+    ns.local.test. 86400 IN A 127.0.0.1
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: p2p-forge
-  namespace: local
+  namespace: ${NAMESPACE}
   labels:
     app: p2p-forge
 spec:
@@ -47,6 +60,8 @@ spec:
         volumeMounts:
         - name: p2p-forge-config
           mountPath: /config
+        - name: p2p-forge-zones
+          mountPath: /p2p-forge/zones
         - name: p2p-forge-data
           mountPath: /data
         resources:
@@ -60,6 +75,15 @@ spec:
       - name: p2p-forge-config
         configMap:
           name: p2p-forge-config
+          items:
+          - key: Corefile
+            path: Corefile
+      - name: p2p-forge-zones
+        configMap:
+          name: p2p-forge-config
+          items:
+          - key: local.test
+            path: local.test
       - name: p2p-forge-data
         emptyDir: {}
 ---
@@ -67,11 +91,11 @@ apiVersion: v1
 kind: Service
 metadata:
   name: p2p-forge
-  namespace: local
+  namespace: ${NAMESPACE}
   labels:
     app: p2p-forge
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
   - name: api
     port: 8080
@@ -81,6 +105,6 @@ spec:
     port: 53
     targetPort: 53
     protocol: UDP
+    nodePort: 30053
   selector:
     app: p2p-forge
-
