@@ -37,6 +37,11 @@ declare -x SETUP_CONTRACT_IMAGE=${SETUP_CONTRACT_IMAGE:-ethersphere/bee-localcha
 declare -x SETUP_CONTRACT_IMAGE_TAG=${SETUP_CONTRACT_IMAGE_TAG:-latest}
 declare -x NAMESPACE=${NAMESPACE:-local}
 declare -x BEEKEEPER_CLUSTER=${BEEKEEPER_CLUSTER:-local}
+declare -x P2P_WSS_ENABLE=${P2P_WSS_ENABLE:-false}
+declare -x PEBBLE_IMAGE_TAG=${PEBBLE_IMAGE_TAG:-2.9.0}
+declare -x P2P_FORGE_IMAGE_TAG=${P2P_FORGE_IMAGE_TAG:-v0.7.0}
+# 10 min validity for ci-autotls renewal test
+declare -x PEBBLE_CERTIFICATE_VALIDITY_PERIOD=${PEBBLE_CERTIFICATE_VALIDITY_PERIOD:-600}
 
 check() {
     if ! grep -qE "docker|admin" <<< "$(id "$(whoami)")"; then
@@ -111,11 +116,25 @@ config() {
         trap 'rm -rf ${BEE_TEMP}' EXIT
         curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/k3d.yaml -o "${BEE_TEMP}"/k3d.yaml
         curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/geth-swap.yaml -o "${BEE_TEMP}"/geth-swap.yaml
+        if [[ "${P2P_WSS_ENABLE}" == "true" ]]; then
+            # download, but if it fails or file is invalid, use local files in deploy-p2p-wss
+            if ! curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/pebble-deployment.yaml -o "${BEE_TEMP}"/pebble-deployment.yaml 2>/dev/null || \
+               ! grep -q "^apiVersion:" "${BEE_TEMP}"/pebble-deployment.yaml 2>/dev/null; then
+                rm -f "${BEE_TEMP}"/pebble-deployment.yaml
+            fi
+            if ! curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/config/p2p-forge-deployment.yaml -o "${BEE_TEMP}"/p2p-forge-deployment.yaml 2>/dev/null || \
+               ! grep -q "^apiVersion:" "${BEE_TEMP}"/p2p-forge-deployment.yaml 2>/dev/null; then
+                rm -f "${BEE_TEMP}"/p2p-forge-deployment.yaml
+            fi
+        fi
         if [[ -n $CI ]]; then
             curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/hack/registries.yaml -o "${BEE_TEMP}"/registries.yaml
             sudo cp "${BEE_TEMP}"/registries.yaml /etc/rancher/k3s/registries.yaml
         fi
         BEE_CONFIG="${BEE_TEMP}"
+    else
+        # Use local config files
+        BEE_CONFIG="config"
     fi
 }
 
@@ -260,6 +279,78 @@ geth() {
     fi
 }
 
+deploy-p2p-wss() {
+    if [[ "${P2P_WSS_ENABLE}" != "true" ]]; then
+        return 0
+    fi
+    
+    if [[ -z $BEE_CONFIG ]]; then
+        config
+    fi
+    
+    echo "deploying P2P-WSS support..."
+
+    # Apply Pebble deployment - use remote file if it exists and is valid, otherwise use local
+    echo "deploying Pebble (ghcr.io/letsencrypt/pebble:${PEBBLE_IMAGE_TAG})..."
+    if [[ -f "${BEE_CONFIG}"/pebble-deployment.yaml ]] && grep -q "^apiVersion:" "${BEE_CONFIG}"/pebble-deployment.yaml 2>/dev/null; then
+        envsubst '${NAMESPACE},${PEBBLE_IMAGE_TAG},${PEBBLE_CERTIFICATE_VALIDITY_PERIOD}' < "${BEE_CONFIG}"/pebble-deployment.yaml | kubectl apply -f -
+    elif [[ -f config/pebble-deployment.yaml ]]; then
+        envsubst '${NAMESPACE},${PEBBLE_IMAGE_TAG},${PEBBLE_CERTIFICATE_VALIDITY_PERIOD}' < config/pebble-deployment.yaml | kubectl apply -f -
+    else
+        echo "pebble-deployment.yaml not found..."
+        return 1
+    fi
+    
+    # Wait for Pebble to be ready
+    echo "waiting for Pebble to be ready..."
+    kubectl rollout status deployment/pebble -n "${NAMESPACE}" --timeout=120s || true
+    
+    # Apply p2p-forge deployment - use remote file if it exists and is valid, otherwise use local
+    echo "deploying p2p-forge (ghcr.io/ipshipyard/p2p-forge:${P2P_FORGE_IMAGE_TAG})..."
+    if [[ -f "${BEE_CONFIG}"/p2p-forge-deployment.yaml ]] && grep -q "^apiVersion:" "${BEE_CONFIG}"/p2p-forge-deployment.yaml 2>/dev/null; then
+        envsubst '${NAMESPACE},${P2P_FORGE_IMAGE_TAG}' < "${BEE_CONFIG}"/p2p-forge-deployment.yaml | kubectl apply -f -
+    elif [[ -f config/p2p-forge-deployment.yaml ]]; then
+        envsubst '${NAMESPACE},${P2P_FORGE_IMAGE_TAG}' < config/p2p-forge-deployment.yaml | kubectl apply -f -
+    else
+        echo "p2p-forge-deployment.yaml not found..."
+        return 1
+    fi
+    
+    # Wait for p2p-forge to be ready
+    echo "waiting for p2p-forge to be ready..."
+    kubectl rollout status deployment/p2p-forge -n "${NAMESPACE}" --timeout=120s || true
+    
+    # Configure CoreDNS to forward local.test queries to p2p-forge
+    echo "configuring CoreDNS to forward local.test to p2p-forge..."
+    
+    # Check if local.test forwarding is already configured
+    if kubectl get cm coredns -n kube-system -o jsonpath='{.data.Corefile}' | grep -q "local.test"; then
+        echo "CoreDNS already configured for local.test, skipping..."
+    else
+        # Patch CoreDNS configmap to add local.test forwarding
+        P2P_FORGE_IP=$(kubectl get svc p2p-forge -n "${NAMESPACE}" -o jsonpath='{.spec.clusterIP}')
+        LOCAL_TEST_BLOCK="local.test:53 {
+    errors
+    cache 30
+    forward . ${P2P_FORGE_IP}:53
+}"
+        # Get current Corefile, append local.test block, and apply
+        CURRENT_COREFILE=$(kubectl get cm coredns -n kube-system -o jsonpath='{.data.Corefile}')
+        NEW_COREFILE="${CURRENT_COREFILE}
+${LOCAL_TEST_BLOCK}"
+        
+        kubectl create configmap coredns -n kube-system \
+            --from-literal=Corefile="${NEW_COREFILE}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+        
+        kubectl rollout restart deployment coredns -n kube-system
+        kubectl rollout status deployment/coredns -n kube-system --timeout=60s || true
+        echo "CoreDNS configured for local.test forwarding..."
+    fi
+    
+    echo "Pebble and p2p-forge deployed successfully..."
+}
+
 stop() {
     if [[ -n $CI ]]; then
         echo "action not supported for CI"
@@ -341,7 +432,7 @@ for OPT in $OPTS; do
     fi
 done
 
-ACTIONS=(build check destroy geth install k8s-local uninstall start stop run prepare add-hosts del-hosts)
+ACTIONS=(build check destroy geth install k8s-local uninstall start stop run prepare add-hosts del-hosts deploy-p2p-wss)
 if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
     if [[ $ACTION == "run" ]]; then
         check
@@ -351,6 +442,7 @@ if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
         elif ! k3d cluster list bee --no-headers &> /dev/null; then
             k8s-local
         fi
+        deploy-p2p-wss
         install
     elif [[ $ACTION == "prepare" ]]; then
         check
@@ -362,6 +454,7 @@ if [[ " ${ACTIONS[*]} " == *"$ACTION"* ]]; then
         elif [[ -z $SKIP_LOCAL ]]; then
             build
         fi
+        deploy-p2p-wss
     else
         $ACTION
     fi
