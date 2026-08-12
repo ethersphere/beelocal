@@ -25,7 +25,8 @@ expr "$*" : ".*--help" > /dev/null && usage
 
 declare -x DOCKER_BUILDKIT="1"
 declare -x BEELOCAL_BRANCH=${BEELOCAL_BRANCH:-main}
-declare -x K3S_VERSION=${K3S_VERSION:-v1.31.10+k3s1}
+declare -x K3S_VERSION=${K3S_VERSION:-v1.35.6+k3s1}
+declare -x K3D_VERSION=${K3D_VERSION:-v5.9.0}
 
 declare -x K3S_FOLDER=${K3S_FOLDER:-"/tmp/k3s-${K3S_VERSION}"}
 
@@ -105,7 +106,7 @@ check() {
         if ! command -v k3d &> /dev/null; then
             echo "k3d is missing..."
             echo "installing k3d..."
-            curl -sSL https://raw.githubusercontent.com/rancher/k3d/main/install.sh | TAG=v5.8.3 bash
+            curl -sSL https://raw.githubusercontent.com/rancher/k3d/main/install.sh | TAG="${K3D_VERSION}" bash
         fi
     fi
 }
@@ -190,7 +191,7 @@ k8s-local() {
         if [[ -z $SKIP_LOCAL ]]; then
             build &
         fi
-        k3d cluster create --config "${BEE_CONFIG}"/k3d.yaml || true
+        k3d cluster create --config "${BEE_CONFIG}"/k3d.yaml --image rancher/k3s:"${K3S_VERSION/+/-}" || true
         echo "waiting for the cluster..."
         until k3d kubeconfig get bee; do sleep 1; done
         echo "k3d cluster started..."
@@ -204,7 +205,7 @@ k8s-local() {
     fi
     helm repo update ethersphere &> /dev/null
     echo "waiting for the ingressroute crd..."
-    until kubectl get crd ingressroutes.traefik.containo.us &> /dev/null; do sleep 1; done
+    until kubectl get crd ingressroutes.traefik.io &> /dev/null || kubectl get crd ingressroutes.traefik.containo.us &> /dev/null; do sleep 1; done
     # Install geth while waiting for traefik
     geth &
     echo "waiting for the kube-system..."
