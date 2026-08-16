@@ -32,7 +32,8 @@ declare -x K3S_FOLDER=${K3S_FOLDER:-"/tmp/k3s-${K3S_VERSION}"}
 
 declare -x ACTION=${ACTION:-run}
 
-declare -x IMAGE=${IMAGE:-k3d-registry.localhost:5000/ethersphere/bee}
+declare -x REGISTRY_PORT=${REGISTRY_PORT:-5000}
+declare -x IMAGE=${IMAGE:-k3d-registry.localhost:${REGISTRY_PORT}/ethersphere/bee}
 declare -x IMAGE_TAG=${IMAGE_TAG:-latest}
 declare -x SETUP_CONTRACT_IMAGE=${SETUP_CONTRACT_IMAGE:-ethersphere/bee-localchain}
 declare -x SETUP_CONTRACT_IMAGE_TAG=${SETUP_CONTRACT_IMAGE_TAG:-latest}
@@ -92,8 +93,8 @@ check() {
                 mkdir -p "${K3S_FOLDER}/k3s-images"
                 curl -sL https://github.com/k3s-io/k3s/releases/download/"${K3S_VERSION/+/%2B}"/k3s-images.txt -o "${K3S_FOLDER}"/k3s-images/k3s-images.txt
                 while read -r image; do docker pull "${image}"; done < "${K3S_FOLDER}"/k3s-images/k3s-images.txt
-                while read -r image; do docker tag "${image}" k3d-registry.localhost:5000/rancher/"${image##*\/}"; done < "${K3S_FOLDER}"/k3s-images/k3s-images.txt
-                while read -r image; do docker save k3d-registry.localhost:5000/rancher/"${image##*\/}" > "${K3S_FOLDER}"/k3s-images/k3s-airgap-"${image##*\/}"-amd64.tar; done < "${K3S_FOLDER}"/k3s-images/k3s-images.txt
+                while read -r image; do docker tag "${image}" k3d-registry.localhost:"${REGISTRY_PORT}"/rancher/"${image##*\/}"; done < "${K3S_FOLDER}"/k3s-images/k3s-images.txt
+                while read -r image; do docker save k3d-registry.localhost:"${REGISTRY_PORT}"/rancher/"${image##*\/}" > "${K3S_FOLDER}"/k3s-images/k3s-airgap-"${image##*\/}"-amd64.tar; done < "${K3S_FOLDER}"/k3s-images/k3s-images.txt
             fi
             sudo mkdir -p /etc/rancher/k3s/
             sudo mkdir -p /var/lib/rancher/k3s/agent/images/
@@ -144,20 +145,20 @@ k8s-local() {
     if [[ -n $CI ]]; then
         echo "starting k3s cluster..."
         # Fix for Docker 29+: disable containerd snapshotter so insecure-registries works
-        echo '{"insecure-registries":["k3d-registry.localhost:5000"],"features":{"containerd-snapshotter":false}}' | sudo tee /etc/docker/daemon.json
+        echo '{"insecure-registries":["k3d-registry.localhost:'"${REGISTRY_PORT}"'"],"features":{"containerd-snapshotter":false}}' | sudo tee /etc/docker/daemon.json
         sudo systemctl restart docker
         if [[ -f  "${K3S_FOLDER}"/k3s-airgap-registry-container-amd64.tar ]]; then
             docker import --change 'ENTRYPOINT ["/entrypoint.sh"]' --change 'CMD ["/etc/docker/registry/config.yml"]' "${K3S_FOLDER}"/k3s-airgap-registry-container-amd64.tar registry:2
         elif [[ -f  "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar ]]; then
             docker load < "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar
         fi
-        docker container run -d --name k3d-registry.localhost --restart always -p 5000:5000 registry:2 || true
+        docker container run -d --name k3d-registry.localhost --restart always -p "${REGISTRY_PORT}":"${REGISTRY_PORT}" registry:2 || true
         if [[ ! -f  "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar ]]; then
             docker save registry > "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar
         fi
         if [[ ! -f  "${K3S_FOLDER}"/k3s-airgap-registry-container-amd64.tar ]] && [[ -d "${K3S_FOLDER}/k3s-images" ]]; then
             while read -r image; do docker load < "${K3S_FOLDER}"/k3s-images/k3s-airgap-"${image##*\/}"-amd64.tar; done < "${K3S_FOLDER}"/k3s-images/k3s-images.txt
-            while read -r image; do docker push k3d-registry.localhost:5000/rancher/"${image##*\/}"; done < "${K3S_FOLDER}"/k3s-images/k3s-images.txt
+            while read -r image; do docker push k3d-registry.localhost:"${REGISTRY_PORT}"/rancher/"${image##*\/}"; done < "${K3S_FOLDER}"/k3s-images/k3s-images.txt
         fi
         if [[ ! -f  "${K3S_FOLDER}"/k3s-airgap-registry-container-amd64.tar ]]; then
             docker export k3d-registry.localhost > "${K3S_FOLDER}"/k3s-airgap-registry-container-amd64.tar
@@ -166,11 +167,11 @@ k8s-local() {
         if [[ ! -f "${K3S_FOLDER}"/k3s-airgap-client-go:"${GETH_VERSION}"-amd64.tar ]]; then
             rm "${K3S_FOLDER}"/k3s-airgap-client-go:*-amd64.tar || true
             docker pull ethereum/client-go:"${GETH_VERSION}"
-            docker tag ethereum/client-go:"${GETH_VERSION}" k3d-registry.localhost:5000/ethereum/client-go:"${GETH_VERSION}"
-            docker save k3d-registry.localhost:5000/ethereum/client-go:"${GETH_VERSION}" > "${K3S_FOLDER}"/k3s-airgap-client-go:"${GETH_VERSION}"-amd64.tar
+            docker tag ethereum/client-go:"${GETH_VERSION}" k3d-registry.localhost:"${REGISTRY_PORT}"/ethereum/client-go:"${GETH_VERSION}"
+            docker save k3d-registry.localhost:"${REGISTRY_PORT}"/ethereum/client-go:"${GETH_VERSION}" > "${K3S_FOLDER}"/k3s-airgap-client-go:"${GETH_VERSION}"-amd64.tar
         else
             docker load < "${K3S_FOLDER}"/k3s-airgap-client-go:"${GETH_VERSION}"-amd64.tar
-            docker push k3d-registry.localhost:5000/ethereum/client-go:"${GETH_VERSION}"
+            docker push k3d-registry.localhost:"${REGISTRY_PORT}"/ethereum/client-go:"${GETH_VERSION}"
         fi
         if [[ -z $SKIP_LOCAL ]]; then
             build &
@@ -187,7 +188,7 @@ k8s-local() {
         fi
     else
         echo "starting k3d cluster..."
-        k3d registry create registry.localhost -p 5000 || true
+        k3d registry create registry.localhost -p "${REGISTRY_PORT}" || true
         if [[ -z $SKIP_LOCAL ]]; then
             build &
         fi
@@ -232,18 +233,18 @@ build() {
             mv dist/bee bee
         fi
         if [[ -z $SKIP_PUSH ]]; then
-            docker buildx build --push -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" -f Dockerfile.goreleaser  \
-                --cache-to type=gha,mode=max,ref=k3d-registry.localhost:5000/ethersphere/bee,compression=estargz \
-                --cache-from type=gha,ref=k3d-registry.localhost:5000/ethersphere/bee .
+            docker buildx build --push -t k3d-registry.localhost:"${REGISTRY_PORT}"/ethersphere/bee:"${IMAGE_TAG}" -f Dockerfile.goreleaser  \
+                --cache-to type=gha,mode=max,ref=k3d-registry.localhost:"${REGISTRY_PORT}"/ethersphere/bee,compression=estargz \
+                --cache-from type=gha,ref=k3d-registry.localhost:"${REGISTRY_PORT}"/ethersphere/bee .
         else
-            docker buildx build -t k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}" -f Dockerfile.goreleaser  \
-                --cache-from type=gha,ref=k3d-registry.localhost:5000/ethersphere/bee .
+            docker buildx build -t k3d-registry.localhost:"${REGISTRY_PORT}"/ethersphere/bee:"${IMAGE_TAG}" -f Dockerfile.goreleaser  \
+                --cache-from type=gha,ref=k3d-registry.localhost:"${REGISTRY_PORT}"/ethersphere/bee .
         fi
     else
-        make docker-build BEE_IMAGE=k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}"
+        make docker-build BEE_IMAGE=k3d-registry.localhost:"${REGISTRY_PORT}"/ethersphere/bee:"${IMAGE_TAG}"
     fi
     if [[ -z $SKIP_PUSH ]]; then
-        docker push k3d-registry.localhost:5000/ethersphere/bee:"${IMAGE_TAG}"
+        docker push k3d-registry.localhost:"${REGISTRY_PORT}"/ethersphere/bee:"${IMAGE_TAG}"
     fi
     if [[ -n $BEE_CD ]]; then
         cd -
