@@ -1,10 +1,10 @@
 mirrors:
-  k3d-registry.localhost:5000:
+  k3d-registry.localhost:${REGISTRY_PORT}:
     endpoint:
-    - http://k3d-registry.localhost:5000
+    - http://k3d-registry.localhost:${REGISTRY_PORT}
   docker.io:
     endpoint:
-    - http://k3d-registry.localhost:5000
+    - http://k3d-registry.localhost:${REGISTRY_PORT}
     rewrite:
       "^rancher/(.*)": "rancher/$1"
       "^ethereum/(.*)": "ethereum/$1"

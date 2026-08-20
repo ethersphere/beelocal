@@ -131,7 +131,7 @@ config() {
         fi
         if [[ -n $CI ]]; then
             curl -sSL https://raw.githubusercontent.com/ethersphere/beelocal/"${BEELOCAL_BRANCH}"/hack/registries.yaml -o "${BEE_TEMP}"/registries.yaml
-            sudo cp "${BEE_TEMP}"/registries.yaml /etc/rancher/k3s/registries.yaml
+            envsubst '${REGISTRY_PORT}' < "${BEE_TEMP}"/registries.yaml | sudo tee /etc/rancher/k3s/registries.yaml &> /dev/null
         fi
         BEE_CONFIG="${BEE_TEMP}"
     else
