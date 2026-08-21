@@ -152,7 +152,7 @@ k8s-local() {
         elif [[ -f  "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar ]]; then
             docker load < "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar
         fi
-        docker container run -d --name k3d-registry.localhost --restart always -p "${REGISTRY_PORT}":"${REGISTRY_PORT}" registry:2 || true
+        docker container run -d --name k3d-registry.localhost --restart always -p "${REGISTRY_PORT}":5000 registry:2 || true
         if [[ ! -f  "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar ]]; then
             docker save registry > "${K3S_FOLDER}"/k3s-airgap-registry-amd64.tar
         fi
