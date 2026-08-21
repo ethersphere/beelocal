@@ -192,7 +192,10 @@ k8s-local() {
         if [[ -z $SKIP_LOCAL ]]; then
             build &
         fi
-        k3d cluster create --config "${BEE_CONFIG}"/k3d.yaml --image rancher/k3s:"${K3S_VERSION/+/-}" || true
+        K3D_CONFIG=$(mktemp -t k3d-XXX.yaml)
+        envsubst '${REGISTRY_PORT}' < "${BEE_CONFIG}"/k3d.yaml > "${K3D_CONFIG}"
+        k3d cluster create --config "${K3D_CONFIG}" --image rancher/k3s:"${K3S_VERSION/+/-}" || true
+        rm -f "${K3D_CONFIG}"
         echo "waiting for the cluster..."
         until k3d kubeconfig get bee; do sleep 1; done
         echo "k3d cluster started..."

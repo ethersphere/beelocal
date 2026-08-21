@@ -28,10 +28,10 @@ registries:
     mirrors:
         docker.io:
             endpoint:
-            - http://k3d-k3s-bee-registry:5000
-        k3d-registry.localhost:5000:
+            - http://k3d-k3s-bee-registry:${REGISTRY_PORT}
+        k3d-registry.localhost:${REGISTRY_PORT}:
             endpoint:
-            - http://k3d-registry.localhost:5000
+            - http://k3d-registry.localhost:${REGISTRY_PORT}
 options:
   k3d:
     wait: true
